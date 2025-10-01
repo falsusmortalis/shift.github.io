@@ -3,8 +3,8 @@ let tg = window.Telegram.WebApp;
 tg.expand();
 tg.ready();
 
-// URL вашего Python бэкенда (замените на реальный)
-const BACKEND_URL = "https://falsusmortalis.github.io/shift.github.io/";
+// Создаем глобальный планировщик
+let scheduler = new ShiftScheduler();
 
 // Данные приложения
 let appData = {
@@ -13,7 +13,100 @@ let appData = {
     results: null
 };
 
-// Показ вкладок
+// [Остальной код остается таким же как в предыдущей версии, но обновляем generateSchedule]
+
+// Генерация расписания - теперь полностью на клиенте
+async function generateSchedule() {
+    if (appData.employees.length === 0) {
+        showNotification('Сначала добавьте сотрудников', 'error');
+        return;
+    }
+    
+    if (Object.keys(appData.schedule).length === 0) {
+        showNotification('Сначала загрузите расписание', 'error');
+        return;
+    }
+    
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('generateBtn').disabled = true;
+    
+    try {
+        // Сбрасываем планировщик
+        scheduler = new ShiftScheduler();
+        
+        // Добавляем сотрудников в планировщик
+        appData.employees.forEach(empData => {
+            scheduler.addEmployee(
+                empData.name,
+                empData.vacation_days,
+                [], // preferred exclusion days
+                empData.priority
+            );
+        });
+        
+        // Генерируем расписание
+        scheduler.generateSchedule(appData.schedule);
+        
+        // Форматируем результаты
+        appData.results = formatResults(scheduler);
+        displayResults();
+        
+        showNotification('Расписание успешно сгенерировано!', 'success');
+        
+    } catch (error) {
+        showNotification('Ошибка при распределении: ' + error.message, 'error');
+        console.error(error);
+    } finally {
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('generateBtn').disabled = false;
+    }
+}
+
+// Форматируем результаты для отображения
+function formatResults(scheduler) {
+    const stats = scheduler.getStatistics();
+    
+    // Назначенные наряды
+    const assignedShifts = scheduler.assignedShifts.map(shift => {
+        const employee = scheduler.employees.find(e => e.id === shift.employeeId);
+        return {
+            date: scheduler.formatDate(shift.date),
+            type: shift.type,
+            employee_name: employee ? employee.name : 'Неизвестно'
+        };
+    });
+    
+    // Нераспределенные наряды
+    const unassignedShifts = scheduler.unassignedShifts.map(shift => ({
+        date: scheduler.formatDate(shift.date),
+        type: shift.type,
+        reason: scheduler.analyzeUnassignedReason(shift)
+    }));
+    
+    // Статистика по сотрудникам
+    const employeeStats = {};
+    scheduler.employees.forEach(emp => {
+        const stats = scheduler.employeeStats.get(emp.id);
+        employeeStats[emp.name] = {
+            shifts_count: stats.shiftsCount,
+            remaining_slots: stats.monthlySlots
+        };
+    });
+    
+    return {
+        assigned_shifts: assignedShifts,
+        unassigned_shifts: unassignedShifts,
+        employee_stats: employeeStats,
+        statistics: {
+            total_employees: stats.total_employees,
+            total_assigned: stats.total_assigned,
+            total_unassigned: stats.total_unassigned,
+            total_requested: stats.total_requested
+        }
+    };
+}
+
+// [Остальные функции остаются без изменений]
 function showTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(tab => {
         tab.classList.remove('active');
@@ -26,7 +119,6 @@ function showTab(tabName) {
     event.target.classList.add('active');
 }
 
-// Обновление полей сотрудников
 function updateEmployeeFields() {
     const count = parseInt(document.getElementById('employeeCount').value);
     const container = document.getElementById('employeeFields');
@@ -54,7 +146,6 @@ function updateEmployeeFields() {
     }
 }
 
-// Сохранение сотрудников
 function saveEmployees() {
     const count = parseInt(document.getElementById('employeeCount').value);
     appData.employees = [];
@@ -67,13 +158,11 @@ function saveEmployees() {
             
             const vacationDates = vacationText.split(',')
                 .map(d => d.trim())
-                .filter(d => d)
-                .map(d => parseDate(d))
-                .filter(d => d !== null);
+                .filter(d => d);
             
             appData.employees.push({
                 name: name,
-                vacation_days: vacationDates.map(d => formatDate(d)),
+                vacation_days: vacationDates,
                 priority: priority
             });
         }
@@ -87,7 +176,6 @@ function saveEmployees() {
     }
 }
 
-// Парсинг расписания
 function parseSchedule() {
     const scheduleText = document.getElementById('manualSchedule').value;
     if (!scheduleText.trim()) {
@@ -109,21 +197,17 @@ function parseSchedule() {
             const dateStr = parts[0].trim();
             const shiftsStr = parts[1].trim();
             
-            try {
-                const date = parseDate(dateStr);
-                if (date) {
-                    const shifts = shiftsStr.split(',')
-                        .map(s => parseInt(s.trim()))
-                        .filter(s => s >= 1 && s <= 7);
-                    
-                    if (shifts.length > 0) {
-                        appData.schedule[formatDate(date)] = shifts;
-                        parsedDays++;
-                        parsedShifts += shifts.length;
-                    }
+            // Простая валидация даты
+            if (dateStr.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
+                const shifts = shiftsStr.split(',')
+                    .map(s => parseInt(s.trim()))
+                    .filter(s => s >= 1 && s <= 7);
+                
+                if (shifts.length > 0) {
+                    appData.schedule[dateStr] = shifts;
+                    parsedDays++;
+                    parsedShifts += shifts.length;
                 }
-            } catch (e) {
-                console.error('Ошибка парсинга строки:', line);
             }
         }
     }
@@ -136,52 +220,6 @@ function parseSchedule() {
     }
 }
 
-// Генерация расписания через бэкенд
-async function generateSchedule() {
-    if (appData.employees.length === 0) {
-        showNotification('Сначала добавьте сотрудников', 'error');
-        return;
-    }
-    
-    if (Object.keys(appData.schedule).length === 0) {
-        showNotification('Сначала загрузите расписание', 'error');
-        return;
-    }
-    
-    document.getElementById('loading').classList.remove('hidden');
-    document.getElementById('generateBtn').disabled = true;
-    
-    try {
-        const response = await fetch(BACKEND_URL + '/api/distribute', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                employees: appData.employees,
-                schedule: appData.schedule
-            })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            appData.results = result.data;
-            displayResults();
-            showNotification('Расписание успешно сгенерировано!', 'success');
-        } else {
-            throw new Error(result.error);
-        }
-        
-    } catch (error) {
-        showNotification('Ошибка при распределении: ' + error.message, 'error');
-    } finally {
-        document.getElementById('loading').classList.add('hidden');
-        document.getElementById('generateBtn').disabled = false;
-    }
-}
-
-// Отображение результатов
 function displayResults() {
     const container = document.getElementById('resultsContainer');
     const results = appData.results;
@@ -191,7 +229,7 @@ function displayResults() {
     let html = `
         <div class="result-item">
             <strong>📊 Статистика распределения:</strong><br>
-            Всего нарядов: ${results.statistics.total_assigned + results.statistics.total_unassigned}<br>
+            Всего нарядов: ${results.statistics.total_requested}<br>
             Распределено: ${results.statistics.total_assigned}<br>
             Нераспределено: ${results.statistics.total_unassigned}<br>
             Сотрудников: ${results.statistics.total_employees}
@@ -210,16 +248,19 @@ function displayResults() {
         `;
     }
     
-    // Назначенные наряды
+    // Назначенные наряды (первые 10)
     if (results.assigned_shifts.length > 0) {
-        html += '<h3>✅ Назначенные наряды:</h3>';
-        results.assigned_shifts.forEach(shift => {
+        html += '<h3>✅ Назначенные наряды (первые 10):</h3>';
+        results.assigned_shifts.slice(0, 10).forEach(shift => {
             html += `
                 <div class="result-item">
                     ${shift.date} - Наряд ${shift.type} → ${shift.employee_name}
                 </div>
             `;
         });
+        if (results.assigned_shifts.length > 10) {
+            html += `<div class="result-item">... и еще ${results.assigned_shifts.length - 10} нарядов</div>`;
+        }
     }
     
     // Нераспределенные наряды
@@ -238,25 +279,6 @@ function displayResults() {
     container.innerHTML = html;
 }
 
-// Вспомогательные функции
-function parseDate(dateStr) {
-    const parts = dateStr.split('.');
-    if (parts.length === 3) {
-        const day = parseInt(parts[0]);
-        const month = parseInt(parts[1]) - 1;
-        const year = parseInt(parts[2]);
-        return new Date(year, month, day);
-    }
-    return null;
-}
-
-function formatDate(date) {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}.${month}.${year}`;
-}
-
 function showNotification(message, type) {
     tg.showPopup({
         title: type === 'success' ? 'Успех' : 'Ошибка',
@@ -272,7 +294,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Показываем информацию о пользователе Telegram
     const user = tg.initDataUnsafe.user;
     if (user) {
-        const welcomeText = `Добро пожаловать, ${user.first_name || 'пользователь'}!`;
-        console.log(welcomeText);
+        console.log(`Добро пожаловать, ${user.first_name || 'пользователь'}!`);
     }
 });
