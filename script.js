@@ -300,7 +300,175 @@ function displayResults() {
     
     container.innerHTML = html;
 }
+// Переключение между видами
+function changeViewType() {
+    const viewType = document.getElementById('viewType').value;
+    const listView = document.getElementById('resultsContainer');
+    const tableView = document.getElementById('tableView');
+    
+    if (viewType === 'table') {
+        listView.classList.add('hidden');
+        tableView.classList.remove('hidden');
+        buildCalendarTable();
+    } else {
+        listView.classList.remove('hidden');
+        tableView.classList.add('hidden');
+    }
+}
 
+// Построение календарной таблицы
+function buildCalendarTable() {
+    if (!appData.results) return;
+    
+    const table = document.getElementById('calendarTable');
+    table.innerHTML = '';
+    
+    // Собираем все уникальные даты
+    const allDates = new Set();
+    
+    // Добавляем даты из назначенных нарядов
+    appData.results.assigned_shifts.forEach(shift => {
+        allDates.add(shift.date);
+    });
+    
+    // Добавляем даты из нераспределенных нарядов
+    appData.results.unassigned_shifts.forEach(shift => {
+        allDates.add(shift.date);
+    });
+    
+    // Преобразуем в массив и сортируем
+    const sortedDates = Array.from(allDates).sort((a, b) => {
+        return new Date(a.split('.').reverse().join('-')) - new Date(b.split('.').reverse().join('-'));
+    });
+    
+    // Создаем заголовок таблицы
+    let headerRow = '<tr><th class="employee-name">Сотрудник</th>';
+    sortedDates.forEach(date => {
+        const day = date.split('.')[0];
+        headerRow += `<th title="${date}">${day}</th>`;
+    });
+    headerRow += '<th>Итого</th></tr>';
+    table.innerHTML = headerRow;
+    
+    // Добавляем строки для каждого сотрудника
+    Object.keys(appData.results.employee_stats).forEach(employeeName => {
+        let row = `<tr><td class="employee-name">${employeeName}</td>`;
+        let totalShifts = 0;
+        
+        sortedDates.forEach(date => {
+            const cell = getCellContent(employeeName, date);
+            if (cell.type === 'shift') totalShifts++;
+            row += `<td class="${cell.class}" title="${date}: ${cell.title}">${cell.content}</td>`;
+        });
+        
+        // Добавляем итого
+        row += `<td style="background: #e8f5e8; font-weight: bold;">${totalShifts}</td></tr>`;
+        table.innerHTML += row;
+    });
+    
+    // Добавляем строку с нераспределенными нарядами
+    if (appData.results.unassigned_shifts.length > 0) {
+        let unassignedRow = '<tr><td class="employee-name" style="background: #ffebee;">Нераспределенные</td>';
+        let unassignedCount = 0;
+        
+        sortedDates.forEach(date => {
+            const shiftsOnDate = appData.results.unassigned_shifts.filter(s => s.date === date);
+            if (shiftsOnDate.length > 0) {
+                unassignedRow += `<td class="error-day" title="${date}: ${shiftsOnDate.map(s => `Наряд ${s.type}`).join(', ')}">${shiftsOnDate.length}</td>`;
+                unassignedCount += shiftsOnDate.length;
+            } else {
+                unassignedRow += '<td></td>';
+            }
+        });
+        
+        unassignedRow += `<td style="background: #ffebee; font-weight: bold;">${unassignedCount}</td></tr>`;
+        table.innerHTML += unassignedRow;
+    }
+}
+
+// Получение содержимого ячейки для конкретного сотрудника и даты
+function getCellContent(employeeName, date) {
+    const employee = appData.employees.find(e => e.name === employeeName);
+    if (!employee) return { content: '', class: 'empty-day', title: 'Нет данных' };
+    
+    // Проверяем отпуск
+    if (employee.vacationDays && employee.vacationDays.includes(date)) {
+        return { content: 'Х', class: 'vacation-day', title: 'Отпуск' };
+    }
+    
+    // Ищем назначенные наряды
+    const assignedShift = appData.results.assigned_shifts.find(s => 
+        s.employee_name === employeeName && s.date === date
+    );
+    
+    if (assignedShift) {
+        return { 
+            content: assignedShift.type, 
+            class: 'shift-day', 
+            title: `Наряд ${assignedShift.type}` 
+        };
+    }
+    
+    // Проверяем день отдыха после суточного наряда
+    const prevDate = getPreviousDay(date);
+    const prevShift = appData.results.assigned_shifts.find(s => 
+        s.employee_name === employeeName && s.date === prevDate
+    );
+    
+    if (prevShift && prevShift.type !== 7) { // Если предыдущий наряд был суточным (не тип 7)
+        return { content: '*', class: 'rest-day', title: 'Отдых после наряда' };
+    }
+    
+    return { content: '', class: 'empty-day', title: 'Свободен' };
+}
+
+// Вспомогательная функция для получения предыдущей даты
+function getPreviousDay(dateStr) {
+    const [day, month, year] = dateStr.split('.').map(Number);
+    const date = new Date(year, month - 1, day);
+    date.setDate(date.getDate() - 1);
+    
+    const prevDay = String(date.getDate()).padStart(2, '0');
+    const prevMonth = String(date.getMonth() + 1).padStart(2, '0');
+    const prevYear = date.getFullYear();
+    
+    return `${prevDay}.${prevMonth}.${prevYear}`;
+}
+
+// Обновляем функцию displayResults для поддержки таблицы
+function displayResults() {
+    const container = document.getElementById('resultsContainer');
+    const results = appData.results;
+    
+    if (!results) return;
+    
+    let html = `
+        <div class="result-item">
+            <strong>📊 Статистика распределения:</strong><br>
+            Всего нарядов: ${results.statistics.total_requested}<br>
+            Распределено: ${results.statistics.total_assigned}<br>
+            Нераспределено: ${results.statistics.total_unassigned}<br>
+            Сотрудников: ${results.statistics.total_employees}
+        </div>
+    `;
+    
+    // Распределение по сотрудникам
+    html += '<h3>📋 Распределение по сотрудникам:</h3>';
+    for (const [empName, stats] of Object.entries(results.employee_stats)) {
+        html += `
+            <div class="result-item">
+                <strong>${empName}</strong><br>
+                Нарядов: ${stats.shifts_count}<br>
+                Осталось слотов: ${stats.remaining_slots}
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html;
+    
+    // Строим таблицу (изначально скрыта)
+    buildCalendarTable();
+}
 // Показать уведомление
 function showNotification(message, type) {
     console.log(type + ":", message);
