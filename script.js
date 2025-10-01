@@ -4,7 +4,7 @@ tg.expand();
 tg.ready();
 
 // URL вашего Python бэкенда (замените на реальный)
-const BACKEND_URL = "https://your-backend.herokuapp.com";
+const BACKEND_URL = "https://falsusmortalis.github.io/shift.github.io/";
 
 // Данные приложения
 let appData = {
