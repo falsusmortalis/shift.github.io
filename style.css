@@ -193,7 +193,47 @@ th {
 .empty-day {
     background: #f8f9fa;
 }
+/* Стили для таблицы нераспределенных нарядов */
+.unassigned-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    font-size: 14px;
+}
 
+.unassigned-table th {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: left;
+    font-weight: bold;
+}
+
+.unassigned-table td {
+    border: 1px solid #ddd;
+    padding: 8px 10px;
+}
+
+.unassigned-table tfoot {
+    background: #fff3cd;
+    font-weight: bold;
+}
+
+/* Стили для полей ввода периода */
+.date-range-inputs {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.date-range-inputs input {
+    flex: 1;
+}
+
+.date-range-inputs span {
+    color: #666;
+    font-size: 14px;
+}
 /* Переключатель вида */
 .view-controls {
     margin: 15px 0;
