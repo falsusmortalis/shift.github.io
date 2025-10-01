@@ -144,7 +144,61 @@ button:active {
     animation: spin 1s linear infinite;
     margin: 0 auto 10px;
 }
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 12px;
+}
 
+th, td {
+    border: 1px solid #ddd;
+    padding: 4px;
+    text-align: center;
+    min-width: 30px;
+}
+
+th {
+    background: #f8f9fa;
+    font-weight: bold;
+    position: sticky;
+    top: 0;
+}
+
+.employee-name {
+    text-align: left;
+    font-weight: bold;
+    background: #f8f9fa;
+    position: sticky;
+    left: 0;
+    min-width: 120px;
+}
+
+.vacation-day {
+    background: #ffeaa7;
+    color: #e17055;
+}
+
+.shift-day {
+    background: #74b9ff;
+    color: white;
+    font-weight: bold;
+}
+
+.rest-day {
+    background: #ffeaa7;
+    color: #666;
+}
+
+.empty-day {
+    background: #f8f9fa;
+}
+
+/* Переключатель вида */
+.view-controls {
+    margin: 15px 0;
+    text-align: center;
+}
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
