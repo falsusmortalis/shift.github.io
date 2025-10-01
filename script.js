@@ -477,6 +477,49 @@ function displayResults() {
     // Строим таблицу (изначально скрыта)
     buildCalendarTable();
 }
+// Форматируем результаты для отображения
+function formatResults(scheduler) {
+    const stats = scheduler.getStatistics();
+    
+    // Назначенные наряды
+    const assignedShifts = scheduler.assignedShifts.map(shift => {
+        const employee = scheduler.employees.find(e => e.id === shift.employeeId);
+        return {
+            date: shift.date,
+            type: shift.type,
+            employee_name: employee ? employee.name : 'Неизвестно'
+        };
+    });
+    
+    // Нераспределенные наряды
+    const unassignedShifts = scheduler.unassignedShifts.map(shift => ({
+        date: shift.date,
+        type: shift.type,
+        reason: "Не удалось распределить"
+    }));
+    
+    // Статистика по сотрудникам
+    const employeeStats = {};
+    scheduler.employees.forEach(emp => {
+        const stats = scheduler.employeeStats.get(emp.id);
+        employeeStats[emp.name] = {
+            shifts_count: stats.shiftsCount,
+            remaining_slots: stats.monthlySlots
+        };
+    });
+    
+    return {
+        assigned_shifts: assignedShifts,
+        unassigned_shifts: unassignedShifts,
+        employee_stats: employeeStats,
+        statistics: {
+            total_employees: stats.totalEmployees,
+            total_assigned: stats.totalAssigned,
+            total_unassigned: stats.totalUnassigned,
+            total_requested: stats.totalRequested
+        }
+    };
+}
 // Показать уведомление
 function showNotification(message, type) {
     console.log(type + ":", message);
