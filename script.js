@@ -102,6 +102,7 @@ function setupEventListeners() {
 }
 
 // Сохранение сотрудников
+// Сохранение сотрудников
 function saveEmployees() {
     console.log("Сохраняем сотрудников...");
     
@@ -111,12 +112,16 @@ function saveEmployees() {
     for (let i = 0; i < count; i++) {
         const name = document.getElementById('empName' + i).value.trim();
         if (name) {
-            const vacationText = document.getElementById('empVacation' + i).value || '';
+            const vacationStart = document.getElementById('empVacationStart' + i).value.trim();
+            const vacationEnd = document.getElementById('empVacationEnd' + i).value.trim();
             const priority = parseInt(document.getElementById('empPriority' + i).value) || 0;
             
-            const vacationDates = vacationText.split(',')
-                .map(d => d.trim())
-                .filter(d => d);
+            let vacationDates = [];
+            
+            // Обрабатываем период отпуска
+            if (vacationStart && vacationEnd) {
+                vacationDates = generateDateRange(vacationStart, vacationEnd);
+            }
             
             appData.employees.push({
                 name: name,
@@ -124,6 +129,57 @@ function saveEmployees() {
                 priority: priority
             });
         }
+    }
+    
+    if (appData.employees.length > 0) {
+        showNotification(`Добавлено ${appData.employees.length} сотрудников`, 'success');
+        showTab('schedule');
+    } else {
+        showNotification('Добавьте хотя бы одного сотрудника', 'error');
+    }
+}
+
+// Генерация диапазона дат
+function generateDateRange(startStr, endStr) {
+    const startDate = parseDate(startStr);
+    const endDate = parseDate(endStr);
+    
+    if (!startDate || !endDate) {
+        console.error("Неверный формат даты отпуска");
+        return [];
+    }
+    
+    const dates = [];
+    const currentDate = new Date(startDate);
+    
+    while (currentDate <= endDate) {
+        dates.push(formatDate(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    console.log(`Сгенерирован отпуск с ${formatDate(startDate)} по ${formatDate(endDate)}: ${dates.length} дней`);
+    return dates;
+}
+
+// Парсинг даты из строки
+function parseDate(dateStr) {
+    const parts = dateStr.split('.');
+    if (parts.length === 3) {
+        const day = parseInt(parts[0]);
+        const month = parseInt(parts[1]) - 1;
+        const year = parseInt(parts[2]);
+        return new Date(year, month, day);
+    }
+    return null;
+}
+
+// Форматирование даты в строку
+function formatDate(date) {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
+}
     }
     
     if (appData.employees.length > 0) {
