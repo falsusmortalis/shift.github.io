@@ -5,28 +5,145 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Распределение нарядов</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 100%;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab.active {
+            border-bottom-color: #007bff;
+            color: #007bff;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        .employee-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .result-item {
+            background: #d4edda;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .error-item {
+            background: #f8d7da;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <h1>🎯 Распределение нарядов</h1>
         
-        <div class="tab-buttons">
-            <button class="tab-button active" onclick="showTab('employees')">👥 Сотрудники</button>
-            <button class="tab-button" onclick="showTab('schedule')">📅 Расписание</button>
-            <button class="tab-button" onclick="showTab('results')">📊 Результаты</button>
+        <div class="tabs">
+            <button class="tab active" data-tab="employees">👥 Сотрудники</button>
+            <button class="tab" data-tab="schedule">📅 Расписание</button>
+            <button class="tab" data-tab="results">📊 Результаты</button>
         </div>
         
         <!-- Вкладка сотрудников -->
         <div id="employees-tab" class="tab-content active">
             <div class="input-group">
                 <label>Количество сотрудников:</label>
-                <input type="number" id="employeeCount" min="1" max="20" value="3" onchange="updateEmployeeFields()">
+                <input type="number" id="employeeCount" min="1" max="20" value="3">
             </div>
             
             <div id="employeeFields"></div>
             
-            <button onclick="saveEmployees()">💾 Сохранить сотрудников</button>
+            <button id="saveEmployeesBtn">💾 Сохранить сотрудников</button>
         </div>
         
         <!-- Вкладка расписания -->
@@ -36,25 +153,24 @@
                 <textarea id="manualSchedule" placeholder="дата;наряды&#10;01.10.2025;1,2,3&#10;02.10.2025;1,2" rows="10"></textarea>
             </div>
             
-            <button onclick="parseSchedule()">📋 Обработать расписание</button>
+            <button id="parseScheduleBtn">📋 Обработать расписание</button>
         </div>
         
         <!-- Вкладка результатов -->
         <div id="results-tab" class="tab-content">
             <div id="loading" class="loading hidden">
-                <div class="spinner"></div>
-                <p>Распределяем наряды...</p>
+                <p>⌛ Распределяем наряды...</p>
             </div>
             
             <div id="resultsContainer">
                 <p>Загрузите сотрудников и расписание, затем нажмите кнопку ниже</p>
             </div>
             
-            <button onclick="generateSchedule()" id="generateBtn">🚀 Сгенерировать расписание</button>
+            <button id="generateBtn">🚀 Сгенерировать расписание</button>
         </div>
     </div>
 
-   <script src="scheduler.js"></script>
+    <script src="scheduler.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
