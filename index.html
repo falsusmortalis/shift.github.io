@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Мой Телеграм Бот</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            background: #ffffff;
+            color: #000000;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #50a8eb;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            margin: 10px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #3d8fd6;
+        }
+        .user-info {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 Привет!</h1>
+        <p>Это мое первое приложение в Telegram!</p>
+        
+        <div class="user-info">
+            <h3>Информация о вас:</h3>
+            <p id="userData">Загрузка...</p>
+        </div>
+        
+        <button onclick="showAlert()">✨ Нажми меня!</button>
+        <button onclick="changeColor()">🎨 Сменить цвет</button>
+        
+        <p style="margin-top: 20px; font-size: 12px; color: #666;">
+            Сделано с ❤️ через Glitch
+        </p>
+    </div>
+
+    <script>
+        // Telegram Web App
+        let tg = window.Telegram.WebApp;
+        
+        // Раскрываем на весь экран
+        tg.expand();
+        
+        // Показываем данные пользователя
+        function updateUserData() {
+            const user = tg.initDataUnsafe.user;
+            if (user) {
+                document.getElementById('userData').innerHTML = `
+                    <strong>ID:</strong> ${user.id}<br>
+                    <strong>Имя:</strong> ${user.first_name || 'Не указано'}<br>
+                    <strong>Фамилия:</strong> ${user.last_name || 'Не указана'}<br>
+                    <strong>Username:</strong> ${user.username ? '@' + user.username : 'Не указан'}
+                `;
+            } else {
+                document.getElementById('userData').innerHTML = 'Данные недоступны';
+            }
+        }
+        
+        function showAlert() {
+            tg.showAlert("Ура! Кнопка работает! 🎊");
+        }
+        
+        function changeColor() {
+            const colors = ['#ff6b6b', '#51cf66', '#339af0', '#cc5de8', '#ff922b'];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            document.body.style.background = randomColor;
+        }
+        
+        // Когда страница загрузилась
+        document.addEventListener('DOMContentLoaded', function() {
+            updateUserData();
+        });
+    </script>
+</body>
+</html>
