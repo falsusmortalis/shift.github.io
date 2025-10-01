@@ -926,7 +926,77 @@
             
             container.innerHTML = html;
         }
+<!-- Добавьте кнопку в tabs -->
+<div class="tabs">
+    <button class="tab active" data-tab="employees">👥 Сотрудники</button>
+    <button class="tab" data-tab="schedule">📅 Расписание</button>
+    <button class="tab" data-tab="results">📊 Результаты</button>
+    <button class="tab" data-tab="payment">💳 Оплата</button>
+</div>
 
+<!-- Добавьте вкладку оплаты -->
+<div id="payment-tab" class="tab-content">
+    <div class="input-group">
+        <h3>Текущий статус</h3>
+        <div id="statusInfo">
+            <p>Загрузка статуса...</p>
+        </div>
+    </div>
+    
+    <div class="input-group">
+        <h3>Тарифы</h3>
+        <div class="tariff-cards">
+            <div class="tariff-card">
+                <h4>🎯 Демо-режим</h4>
+                <p><strong>Бесплатно</strong></p>
+                <ul>
+                    <li>Генерация на первые 7 дней месяца</li>
+                    <li>Без ограничения сотрудников</li>
+                    <li>Просмотр результатов</li>
+                </ul>
+                <button onclick="activateDemo()">Активировать демо</button>
+            </div>
+            
+            <div class="tariff-card">
+                <h4>💎 Полный доступ</h4>
+                <p><strong>300 руб/месяц</strong></p>
+                <ul>
+                    <li>7 генераций в месяц</li>
+                    <li>Полный доступ ко всем датам</li>
+                    <li>Неограниченное число сотрудников</li>
+                    <li>Приоритетная поддержка</li>
+                </ul>
+                <button onclick="showPaymentForm('monthly')">Купить подписку</button>
+            </div>
+            
+            <div class="tariff-card">
+                <h4>⚡ Разовая генерация</h4>
+                <p><strong>100 руб</strong></p>
+                <ul>
+                    <li>1 полная генерация</li>
+                    <li>Все функции на 1 раз</li>
+                    <li>Поддержка всех дат</li>
+                </ul>
+                <button onclick="showPaymentForm('single')">Купить разово</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="paymentForm" class="hidden">
+        <div class="input-group">
+            <h3>Оплата</h3>
+            <p>Для оплаты отправьте <strong><span id="paymentAmount">100</span> рублей</strong> на:</p>
+            <div class="payment-info">
+                <p><strong>СБЕРБАНК:</strong> 2202 2001 2345 6789</p>
+                <p><strong>Получатель:</strong> Иванов И.И.</p>
+            </div>
+            <p>После оплаты отправьте скриншот чека в телеграм @ваш_аккаунт</p>
+            <p>Или введите код подтверщения (если получили):</p>
+            <input type="text" id="paymentCode" placeholder="Код подтверждения">
+            <button onclick="activatePremium()">Активировать премиум</button>
+        </div>
+    </div>
+</div>
         // Смена вида отображения
         function changeView() {
             const viewType = document.getElementById('viewType').value;
