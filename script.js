@@ -75,8 +75,12 @@ function updateEmployeeFields() {
                     <input type="text" id="empName${i}" placeholder="Иванов" value="Сотрудник ${i + 1}">
                 </div>
                 <div class="input-group">
-                    <label>Отпуск (через запятую ДД.ММ.ГГГГ):</label>
-                    <input type="text" id="empVacation${i}" placeholder="01.10.2025, 02.10.2025">
+                    <label>Отпуск (период):</label>
+                    <div class="date-range-inputs">
+                        <input type="text" id="empVacationStart${i}" placeholder="01.10.2025">
+                        <span>по</span>
+                        <input type="text" id="empVacationEnd${i}" placeholder="10.10.2025">
+                    </div>
                 </div>
                 <div class="input-group">
                     <label>Приоритет (0-10):</label>
@@ -99,9 +103,11 @@ function setupEventListeners() {
     
     // Генерация расписания
     document.getElementById('generateBtn').addEventListener('click', generateSchedule);
+    
+    // Переключение вида результатов
+    document.getElementById('viewType').addEventListener('change', changeViewType);
 }
 
-// Сохранение сотрудников
 // Сохранение сотрудников
 function saveEmployees() {
     console.log("Сохраняем сотрудников...");
@@ -161,35 +167,6 @@ function generateDateRange(startStr, endStr) {
     return dates;
 }
 
-// Парсинг даты из строки
-function parseDate(dateStr) {
-    const parts = dateStr.split('.');
-    if (parts.length === 3) {
-        const day = parseInt(parts[0]);
-        const month = parseInt(parts[1]) - 1;
-        const year = parseInt(parts[2]);
-        return new Date(year, month, day);
-    }
-    return null;
-}
-
-// Форматирование даты в строку
-function formatDate(date) {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}.${month}.${year}`;
-}
-    }
-    
-    if (appData.employees.length > 0) {
-        showNotification(`Добавлено ${appData.employees.length} сотрудников`, 'success');
-        showTab('schedule');
-    } else {
-        showNotification('Добавьте хотя бы одного сотрудника', 'error');
-    }
-}
-
 // Парсинг расписания
 function parseSchedule() {
     console.log("Парсим расписание...");
@@ -205,36 +182,25 @@ function parseSchedule() {
     let parsedDays = 0;
     let parsedShifts = 0;
     
-    // Пример данных для теста, если поле пустое
-    if (scheduleText.trim() === '') {
-        appData.schedule = {
-            '01.10.2025': [1, 2, 3],
-            '02.10.2025': [1, 2],
-            '03.10.2025': [1, 2, 3, 4]
-        };
-        parsedDays = 3;
-        parsedShifts = 8;
-    } else {
-        for (let line of lines) {
-            line = line.trim();
-            if (!line || line.startsWith('дата')) continue;
+    for (let line of lines) {
+        line = line.trim();
+        if (!line || line.startsWith('дата')) continue;
+        
+        const parts = line.split(';');
+        if (parts.length >= 2) {
+            const dateStr = parts[0].trim();
+            const shiftsStr = parts[1].trim();
             
-            const parts = line.split(';');
-            if (parts.length >= 2) {
-                const dateStr = parts[0].trim();
-                const shiftsStr = parts[1].trim();
+            // Простая валидация даты
+            if (dateStr.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
+                const shifts = shiftsStr.split(',')
+                    .map(s => parseInt(s.trim()))
+                    .filter(s => s >= 1 && s <= 7);
                 
-                // Простая валидация даты
-                if (dateStr.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
-                    const shifts = shiftsStr.split(',')
-                        .map(s => parseInt(s.trim()))
-                        .filter(s => s >= 1 && s <= 7);
-                    
-                    if (shifts.length > 0) {
-                        appData.schedule[dateStr] = shifts;
-                        parsedDays++;
-                        parsedShifts += shifts.length;
-                    }
+                if (shifts.length > 0) {
+                    appData.schedule[dateStr] = shifts;
+                    parsedDays++;
+                    parsedShifts += shifts.length;
                 }
             }
         }
@@ -292,8 +258,7 @@ function generateSchedule() {
             
             // Сбрасываем выбор вида на "список"
             document.getElementById('viewType').value = 'list';
-            document.getElementById('tableView').classList.add('hidden');
-            document.getElementById('resultsContainer').classList.remove('hidden');
+            changeViewType();
             
             showNotification('Расписание успешно сгенерировано!', 'success');
             
@@ -307,63 +272,147 @@ function generateSchedule() {
     }, 500);
 }
 
+// Форматируем результаты для отображения
+function formatResults(scheduler) {
+    const stats = scheduler.getStatistics();
+    
+    // Назначенные наряды
+    const assignedShifts = scheduler.assignedShifts.map(shift => {
+        const employee = scheduler.employees.find(e => e.id === shift.employeeId);
+        return {
+            date: shift.date,
+            type: shift.type,
+            employee_name: employee ? employee.name : 'Неизвестно'
+        };
+    });
+    
+    // Нераспределенные наряды
+    const unassignedShifts = scheduler.unassignedShifts.map(shift => ({
+        date: shift.date,
+        type: shift.type,
+        reason: "Не удалось распределить"
+    }));
+    
+    // Статистика по сотрудникам
+    const employeeStats = {};
+    scheduler.employees.forEach(emp => {
+        const stats = scheduler.employeeStats.get(emp.id);
+        employeeStats[emp.name] = {
+            shifts_count: stats.shiftsCount,
+            remaining_slots: stats.monthlySlots
+        };
+    });
+    
+    return {
+        assigned_shifts: assignedShifts,
+        unassigned_shifts: unassignedShifts,
+        employee_stats: employeeStats,
+        statistics: {
+            total_employees: stats.totalEmployees,
+            total_assigned: stats.totalAssigned,
+            total_unassigned: stats.totalUnassigned,
+            total_requested: stats.totalRequested
+        }
+    };
+}
+
 // Отображение результатов
 function displayResults() {
     const container = document.getElementById('resultsContainer');
-    const stats = scheduler.getStatistics();
+    const results = appData.results;
+    
+    if (!results) return;
     
     let html = `
         <div class="result-item">
             <strong>📊 Статистика распределения:</strong><br>
-            Всего нарядов: ${stats.totalRequested}<br>
-            Распределено: ${stats.totalAssigned}<br>
-            Нераспределено: ${stats.totalUnassigned}<br>
-            Сотрудников: ${stats.totalEmployees}
+            Всего нарядов: ${results.statistics.total_requested}<br>
+            Распределено: ${results.statistics.total_assigned}<br>
+            Нераспределено: ${results.statistics.total_unassigned}<br>
+            Сотрудников: ${results.statistics.total_employees}
         </div>
     `;
     
     // Распределение по сотрудникам
     html += '<h3>📋 Распределение по сотрудникам:</h3>';
-    scheduler.employees.forEach(employee => {
-        const employeeStats = scheduler.employeeStats.get(employee.id);
+    for (const [empName, stats] of Object.entries(results.employee_stats)) {
         html += `
             <div class="result-item">
-                <strong>${employee.name}</strong><br>
-                Нарядов: ${employeeStats.shiftsCount}<br>
-                Осталось слотов: ${employeeStats.monthlySlots}
+                <strong>${empName}</strong><br>
+                Нарядов: ${stats.shifts_count}<br>
+                Осталось слотов: ${stats.remaining_slots}
             </div>
+        `;
+    }
+    
+    // Добавляем таблицу нераспределенных нарядов
+    html += displayUnassignedShiftsTable(results.unassigned_shifts);
+    
+    container.innerHTML = html;
+    
+    // Строим календарную таблицу (изначально скрыта)
+    buildCalendarTable();
+}
+
+// Функция для отображения нераспределенных нарядов в виде таблицы
+function displayUnassignedShiftsTable(unassignedShifts) {
+    if (!unassignedShifts || unassignedShifts.length === 0) {
+        return '<p>Все наряды распределены 🎉</p>';
+    }
+    
+    // Группируем по датам
+    const shiftsByDate = {};
+    unassignedShifts.forEach(shift => {
+        if (!shiftsByDate[shift.date]) {
+            shiftsByDate[shift.date] = [];
+        }
+        shiftsByDate[shift.date].push(shift.type);
+    });
+    
+    let html = `
+        <div style="margin: 15px 0;">
+            <h3>⚠️ Нераспределенные наряды</h3>
+            <table class="unassigned-table">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Типы нарядов</th>
+                        <th style="text-align: center;">Количество</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    const sortedDates = Object.keys(shiftsByDate).sort((a, b) => {
+        return new Date(a.split('.').reverse().join('-')) - new Date(b.split('.').reverse().join('-'));
+    });
+    
+    sortedDates.forEach(date => {
+        const shifts = shiftsByDate[date];
+        html += `
+            <tr>
+                <td><strong>${date}</strong></td>
+                <td>${shifts.join(', ')}</td>
+                <td style="text-align: center;">${shifts.length}</td>
+            </tr>
         `;
     });
     
-    // Назначенные наряды
-    if (scheduler.assignedShifts.length > 0) {
-        html += '<h3>✅ Назначенные наряды:</h3>';
-        scheduler.assignedShifts.slice(0, 10).forEach(shift => {
-            html += `
-                <div class="result-item">
-                    ${shift.date} - Наряд ${shift.type} → ${shift.employeeName}
-                </div>
-            `;
-        });
-        if (scheduler.assignedShifts.length > 10) {
-            html += `<div class="result-item">... и еще ${scheduler.assignedShifts.length - 10} нарядов</div>`;
-        }
-    }
+    html += `
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2" style="text-align: right;"><strong>Всего нераспределено:</strong></td>
+                        <td style="text-align: center;"><strong>${unassignedShifts.length}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    `;
     
-    // Нераспределенные наряды
-    if (scheduler.unassignedShifts.length > 0) {
-        html += '<h3>⚠️ Нераспределенные наряды:</h3>';
-        scheduler.unassignedShifts.forEach(shift => {
-            html += `
-                <div class="error-item">
-                    ${shift.date} - Наряд ${shift.type}
-                </div>
-            `;
-        });
-    }
-    
-    container.innerHTML = html;
+    return html;
 }
+
 // Переключение между видами
 function changeViewType() {
     const viewType = document.getElementById('viewType').value;
@@ -453,11 +502,11 @@ function buildCalendarTable() {
 // Получение содержимого ячейки для конкретного сотрудника и даты
 function getCellContent(employeeName, date) {
     const employee = appData.employees.find(e => e.name === employeeName);
-    if (!employee) return { content: '', class: 'empty-day', title: 'Нет данных' };
+    if (!employee) return { content: '', class: 'empty-day', title: 'Нет данных', type: 'empty' };
     
     // Проверяем отпуск
     if (employee.vacationDays && employee.vacationDays.includes(date)) {
-        return { content: 'Х', class: 'vacation-day', title: 'Отпуск' };
+        return { content: 'Х', class: 'vacation-day', title: 'Отпуск', type: 'vacation' };
     }
     
     // Ищем назначенные наряды
@@ -469,7 +518,8 @@ function getCellContent(employeeName, date) {
         return { 
             content: assignedShift.type, 
             class: 'shift-day', 
-            title: `Наряд ${assignedShift.type}` 
+            title: `Наряд ${assignedShift.type}`,
+            type: 'shift'
         };
     }
     
@@ -480,10 +530,10 @@ function getCellContent(employeeName, date) {
     );
     
     if (prevShift && prevShift.type !== 7) { // Если предыдущий наряд был суточным (не тип 7)
-        return { content: '*', class: 'rest-day', title: 'Отдых после наряда' };
+        return { content: '*', class: 'rest-day', title: 'Отдых после наряда', type: 'rest' };
     }
     
-    return { content: '', class: 'empty-day', title: 'Свободен' };
+    return { content: '', class: 'empty-day', title: 'Свободен', type: 'empty' };
 }
 
 // Вспомогательная функция для получения предыдущей даты
@@ -499,180 +549,26 @@ function getPreviousDay(dateStr) {
     return `${prevDay}.${prevMonth}.${prevYear}`;
 }
 
-// Обновляем функцию displayResults для поддержки таблицы
-function displayResults() {
-    const container = document.getElementById('resultsContainer');
-    const results = appData.results;
-    
-    if (!results) return;
-    
-    let html = `
-        <div class="result-item">
-            <strong>📊 Статистика распределения:</strong><br>
-            Всего нарядов: ${results.statistics.total_requested}<br>
-            Распределено: ${results.statistics.total_assigned}<br>
-            Нераспределено: ${results.statistics.total_unassigned}<br>
-            Сотрудников: ${results.statistics.total_employees}
-        </div>
-    `;
-    
-    // Распределение по сотрудникам
-    html += '<h3>📋 Распределение по сотрудникам:</h3>';
-    for (const [empName, stats] of Object.entries(results.employee_stats)) {
-        html += `
-            <div class="result-item">
-                <strong>${empName}</strong><br>
-                Нарядов: ${stats.shifts_count}<br>
-                Осталось слотов: ${stats.remaining_slots}
-            </div>
-        `;
+// Парсинг даты из строки
+function parseDate(dateStr) {
+    const parts = dateStr.split('.');
+    if (parts.length === 3) {
+        const day = parseInt(parts[0]);
+        const month = parseInt(parts[1]) - 1;
+        const year = parseInt(parts[2]);
+        return new Date(year, month, day);
     }
-    
-    container.innerHTML = html;
-    
-    // Строим таблицу (изначально скрыта)
-    buildCalendarTable();
-}
-// Форматируем результаты для отображения
-function formatResults(scheduler) {
-    const stats = scheduler.getStatistics();
-    
-    // Назначенные наряды
-    const assignedShifts = scheduler.assignedShifts.map(shift => {
-        const employee = scheduler.employees.find(e => e.id === shift.employeeId);
-        return {
-            date: shift.date,
-            type: shift.type,
-            employee_name: employee ? employee.name : 'Неизвестно'
-        };
-    });
-    
-    // Нераспределенные наряды
-    const unassignedShifts = scheduler.unassignedShifts.map(shift => ({
-        date: shift.date,
-        type: shift.type,
-        reason: "Не удалось распределить"
-    }));
-    
-    // Статистика по сотрудникам
-    const employeeStats = {};
-    scheduler.employees.forEach(emp => {
-        const stats = scheduler.employeeStats.get(emp.id);
-        employeeStats[emp.name] = {
-            shifts_count: stats.shiftsCount,
-            remaining_slots: stats.monthlySlots
-        };
-    });
-    
-    return {
-        assigned_shifts: assignedShifts,
-        unassigned_shifts: unassignedShifts,
-        employee_stats: employeeStats,
-        statistics: {
-            total_employees: stats.totalEmployees,
-            total_assigned: stats.totalAssigned,
-            total_unassigned: stats.totalUnassigned,
-            total_requested: stats.totalRequested
-        }
-    };
+    return null;
 }
 
-// Функция для отображения нераспределенных нарядов в виде таблицы
-function displayUnassignedShiftsTable(unassignedShifts) {
-    if (!unassignedShifts || unassignedShifts.length === 0) {
-        return '<p>Все наряды распределены 🎉</p>';
-    }
-    
-    // Группируем по датам
-    const shiftsByDate = {};
-    unassignedShifts.forEach(shift => {
-        if (!shiftsByDate[shift.date]) {
-            shiftsByDate[shift.date] = [];
-        }
-        shiftsByDate[shift.date].push(shift.type);
-    });
-    
-    let html = `
-        <div style="margin: 15px 0;">
-            <h3>⚠️ Нераспределенные наряды</h3>
-            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                <thead>
-                    <tr style="background: #f8f9fa;">
-                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Дата</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Типы нарядов</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Количество</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-    
-    const sortedDates = Object.keys(shiftsByDate).sort((a, b) => {
-        return new Date(a.split('.').reverse().join('-')) - new Date(b.split('.').reverse().join('-'));
-    });
-    
-    sortedDates.forEach(date => {
-        const shifts = shiftsByDate[date];
-        html += `
-            <tr>
-                <td style="border: 1px solid #ddd; padding: 8px;"><strong>${date}</strong></td>
-                <td style="border: 1px solid #ddd; padding: 8px;">${shifts.join(', ')}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${shifts.length}</td>
-            </tr>
-        `;
-    });
-    
-    html += `
-                </tbody>
-                <tfoot>
-                    <tr style="background: #fff3cd;">
-                        <td colspan="2" style="border: 1px solid #ddd; padding: 8px; text-align: right;"><strong>Всего нераспределено:</strong></td>
-                        <td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><strong>${unassignedShifts.length}</strong></td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-    `;
-    
-    return html;
+// Форматирование даты в строку
+function formatDate(date) {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
 }
 
-// Обновляем функцию displayResults
-function displayResults() {
-    const container = document.getElementById('resultsContainer');
-    const results = appData.results;
-    
-    if (!results) return;
-    
-    let html = `
-        <div class="result-item">
-            <strong>📊 Статистика распределения:</strong><br>
-            Всего нарядов: ${results.statistics.total_requested}<br>
-            Распределено: ${results.statistics.total_assigned}<br>
-            Нераспределено: ${results.statistics.total_unassigned}<br>
-            Сотрудников: ${results.statistics.total_employees}
-        </div>
-    `;
-    
-    // Распределение по сотрудникам
-    html += '<h3>📋 Распределение по сотрудникам:</h3>';
-    for (const [empName, stats] of Object.entries(results.employee_stats)) {
-        html += `
-            <div class="result-item">
-                <strong>${empName}</strong><br>
-                Нарядов: ${stats.shifts_count}<br>
-                Осталось слотов: ${stats.remaining_slots}
-            </div>
-        `;
-    }
-    
-    // Добавляем таблицу нераспределенных нарядов
-    html += displayUnassignedShiftsTable(results.unassigned_shifts);
-    
-    container.innerHTML = html;
-    
-    // Строим календарную таблицу (изначально скрыта)
-    buildCalendarTable();
-}
 // Показать уведомление
 function showNotification(message, type) {
     console.log(type + ":", message);
