@@ -228,8 +228,16 @@ function generateSchedule() {
             // Генерируем расписание
             scheduler.generateSchedule(appData.schedule);
             
+            // Форматируем результаты
+            appData.results = formatResults(scheduler);
+            
             // Показываем результаты
             displayResults();
+            
+            // Сбрасываем выбор вида на "список"
+            document.getElementById('viewType').value = 'list';
+            document.getElementById('tableView').classList.add('hidden');
+            document.getElementById('resultsContainer').classList.remove('hidden');
             
             showNotification('Расписание успешно сгенерировано!', 'success');
             
