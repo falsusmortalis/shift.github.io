@@ -275,4 +275,322 @@
         
         // Сохранение сотрудников
         function saveEmployees() {
-            const
+            const count = parseInt(document.getElementById('employeeCount').value);
+            appData.employees = [];
+            
+            for (let i = 0; i < count; i++) {
+                const name = document.getElementById('empName' + i)?.value.trim();
+                if (name) {
+                    const vacationText = document.getElementById('empVacation' + i)?.value || '';
+                    const priority = parseInt(document.getElementById('empPriority' + i)?.value) || 0;
+                    
+                    const vacationDates = vacationText.split(',')
+                        .map(d => d.trim())
+                        .filter(d => d)
+                        .map(d => parseDate(d));
+                    
+                    appData.employees.push({
+                        id: i + 1,
+                        name: name,
+                        vacationDays: vacationDates,
+                        priority: priority
+                    });
+                }
+            }
+            
+            if (appData.employees.length > 0) {
+                tg.showPopup({
+                    title: 'Сохранено',
+                    message: `Добавлено ${appData.employees.length} сотрудников`,
+                    buttons: [{ type: 'ok' }]
+                });
+                showTab('schedule');
+            } else {
+                tg.showPopup({
+                    title: 'Ошибка',
+                    message: 'Добавьте хотя бы одного сотрудника',
+                    buttons: [{ type: 'ok' }]
+                });
+            }
+        }
+        
+        // Обработка загрузки файла
+        function handleFileUpload(files) {
+            if (files.length === 0) return;
+            
+            const file = files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                document.getElementById('manualSchedule').value = e.target.result;
+            };
+            
+            reader.readAsText(file);
+        }
+        
+        // Парсинг расписания
+        function parseSchedule() {
+            const scheduleText = document.getElementById('manualSchedule').value;
+            if (!scheduleText.trim()) {
+                tg.showPopup({
+                    title: 'Ошибка',
+                    message: 'Введите расписание или загрузите файл',
+                    buttons: [{ type: 'ok' }]
+                });
+                return;
+            }
+            
+            appData.schedule = {};
+            const lines = scheduleText.split('\n');
+            
+            for (let line of lines) {
+                line = line.trim();
+                if (!line || line.startsWith('дата')) continue;
+                
+                const parts = line.split(';');
+                if (parts.length >= 2) {
+                    const dateStr = parts[0].trim();
+                    const shiftsStr = parts[1].trim();
+                    
+                    try {
+                        const date = parseDate(dateStr);
+                        const shifts = shiftsStr.split(',')
+                            .map(s => parseInt(s.trim()))
+                            .filter(s => s >= 1 && s <= 7);
+                        
+                        if (date && shifts.length > 0) {
+                            appData.schedule[date.toISOString()] = shifts;
+                        }
+                    } catch (e) {
+                        console.error('Ошибка парсинга строки:', line);
+                    }
+                }
+            }
+            
+            const totalShifts = Object.values(appData.schedule).reduce((sum, shifts) => sum + shifts.length, 0);
+            
+            tg.showPopup({
+                title: 'Успех',
+                message: `Расписание загружено: ${Object.keys(appData.schedule).length} дней, ${totalShifts} нарядов`,
+                buttons: [{ type: 'ok' }]
+            });
+            
+            showTab('results');
+        }
+        
+        // Генерация расписания
+        function generateSchedule() {
+            if (appData.employees.length === 0) {
+                tg.showPopup({
+                    title: 'Ошибка',
+                    message: 'Сначала добавьте сотрудников',
+                    buttons: [{ type: 'ok' }]
+                });
+                return;
+            }
+            
+            if (Object.keys(appData.schedule).length === 0) {
+                tg.showPopup({
+                    title: 'Ошибка',
+                    message: 'Сначала загрузите расписание',
+                    buttons: [{ type: 'ok' }]
+                });
+                return;
+            }
+            
+            // Показать загрузку
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('generateBtn').disabled = true;
+            
+            // Имитация обработки (в реальном приложении здесь будет сложная логика)
+            setTimeout(() => {
+                try {
+                    appData.results = distributeShifts(appData.employees, appData.schedule);
+                    displayResults();
+                } catch (error) {
+                    tg.showPopup({
+                        title: 'Ошибка',
+                        message: 'Ошибка при распределении: ' + error.message,
+                        buttons: [{ type: 'ok' }]
+                    });
+                }
+                
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('generateBtn').disabled = false;
+            }, 2000);
+        }
+        
+        // Основной алгоритм распределения (упрощенная версия)
+        function distributeShifts(employees, schedule) {
+            const assignedShifts = [];
+            const unassignedShifts = [];
+            const employeeStats = {};
+            
+            // Инициализация статистики
+            employees.forEach(emp => {
+                employeeStats[emp.id] = {
+                    shiftsCount: 0,
+                    monthlySlots: 15
+                };
+            });
+            
+            // Преобразуем расписание в массив нарядов
+            const allShifts = [];
+            Object.keys(schedule).forEach(dateStr => {
+                const date = new Date(dateStr);
+                schedule[dateStr].forEach(shiftType => {
+                    allShifts.push({
+                        date: date,
+                        type: shiftType,
+                        employeeId: null
+                    });
+                });
+            });
+            
+            // Сортируем по дате
+            allShifts.sort((a, b) => a.date - b.date);
+            
+            // Распределяем наряды
+            allShifts.forEach(shift => {
+                const shiftDays = getShiftDays(shift);
+                let bestEmployee = null;
+                let bestScore = -Infinity;
+                
+                // Ищем лучшего сотрудника
+                employees.forEach(emp => {
+                    // Проверяем доступность
+                    if (isEmployeeAvailable(emp, shiftDays, employeeStats[emp.id], shift.type)) {
+                        const score = calculateEmployeeScore(emp, employeeStats[emp.id], shift);
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestEmployee = emp;
+                        }
+                    }
+                });
+                
+                if (bestEmployee) {
+                    // Назначаем наряд
+                    shift.employeeId = bestEmployee.id;
+                    assignedShifts.push(shift);
+                    
+                    // Обновляем статистику
+                    employeeStats[bestEmployee.id].shiftsCount++;
+                    if (shift.type !== 7) {
+                        employeeStats[bestEmployee.id].monthlySlots--;
+                    }
+                } else {
+                    unassignedShifts.push(shift);
+                }
+            });
+            
+            return {
+                assignedShifts: assignedShifts,
+                unassignedShifts: unassignedShifts,
+                employeeStats: employeeStats
+            };
+        }
+        
+        // Вспомогательные функции
+        function parseDate(dateStr) {
+            const parts = dateStr.split('.');
+            if (parts.length === 3) {
+                return new Date(parts[2], parts[1] - 1, parts[0]);
+            }
+            return null;
+        }
+        
+        function getShiftDays(shift) {
+            if (shift.type === 7) {
+                return [shift.date];
+            } else {
+                return [shift.date, new Date(shift.date.getTime() + 24 * 60 * 60 * 1000)];
+            }
+        }
+        
+        function isEmployeeAvailable(emp, shiftDays, stats, shiftType) {
+            // Проверка отпуска
+            for (let day of shiftDays) {
+                if (emp.vacationDays.some(vacation => 
+                    vacation.getDate() === day.getDate() &&
+                    vacation.getMonth() === day.getMonth() &&
+                    vacation.getFullYear() === day.getFullYear()
+                )) {
+                    return false;
+                }
+            }
+            
+            // Проверка лимита для суточных нарядов
+            if (shiftType !== 7 && stats.monthlySlots <= 0) {
+                return false;
+            }
+            
+            return true;
+        }
+        
+        function calculateEmployeeScore(emp, stats, shift) {
+            let score = emp.priority * 10; // Приоритет сотрудника
+            score -= stats.shiftsCount * 2; // Меньше нарядов - выше приоритет
+            if (shift.type !== 7) {
+                score += stats.monthlySlots; // Больше доступных слотов - выше приоритет
+            }
+            return score;
+        }
+        
+        // Отображение результатов
+        function displayResults() {
+            const container = document.getElementById('resultsContainer');
+            const results = appData.results;
+            
+            if (!results) return;
+            
+            let html = `
+                <div class="result-item">
+                    <strong>📊 Статистика распределения:</strong><br>
+                    Всего нарядов: ${results.assignedShifts.length + results.unassignedShifts.length}<br>
+                    Распределено: ${results.assignedShifts.length}<br>
+                    Нераспределено: ${results.unassignedShifts.length}
+                </div>
+            `;
+            
+            // Распределение по сотрудникам
+            html += '<h3>📋 Распределение по сотрудникам:</h3>';
+            appData.employees.forEach(emp => {
+                const empShifts = results.assignedShifts.filter(s => s.employeeId === emp.id);
+                html += `
+                    <div class="result-item">
+                        <strong>${emp.name}</strong><br>
+                        Нарядов: ${empShifts.length}<br>
+                        Осталось слотов: ${results.employeeStats[emp.id].monthlySlots}
+                    </div>
+                `;
+            });
+            
+            // Нераспределенные наряды
+            if (results.unassignedShifts.length > 0) {
+                html += '<h3>⚠️ Нераспределенные наряды:</h3>';
+                results.unassignedShifts.forEach(shift => {
+                    html += `
+                        <div class="error-item">
+                            ${shift.date.toLocaleDateString('ru-RU')} - Наряд ${shift.type}
+                        </div>
+                    `;
+                });
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            updateEmployeeFields();
+            
+            // Показываем информацию о пользователе Telegram
+            const user = tg.initDataUnsafe.user;
+            if (user) {
+                const welcomeText = `Добро пожаловать, ${user.first_name || 'пользователь'}!`;
+                document.querySelector('h1').textContent += ` - ${user.first_name || ''}`;
+            }
+        });
+    </script>
+</body>
+</html>
