@@ -5,51 +5,42 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
+    font-family: Arial, sans-serif;
+    background: #f5f5f5;
     padding: 20px;
 }
 
 .container {
     max-width: 100%;
     background: white;
-    border-radius: 20px;
+    border-radius: 10px;
     padding: 20px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
 h1 {
     text-align: center;
-    color: #333;
     margin-bottom: 20px;
-    font-size: 24px;
+    color: #333;
 }
 
-.tab-buttons {
+.tabs {
     display: flex;
     margin-bottom: 20px;
-    background: #f5f5f5;
-    border-radius: 10px;
-    padding: 5px;
+    border-bottom: 1px solid #ddd;
 }
 
-.tab-button {
-    flex: 1;
-    padding: 12px;
-    text-align: center;
+.tab {
+    padding: 10px 20px;
     background: none;
     border: none;
-    border-radius: 8px;
-    font-weight: 500;
     cursor: pointer;
-    transition: all 0.3s;
+    border-bottom: 3px solid transparent;
 }
 
-.tab-button.active {
-    background: white;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+.tab.active {
+    border-bottom-color: #007bff;
+    color: #007bff;
 }
 
 .tab-content {
@@ -67,63 +58,57 @@ h1 {
 label {
     display: block;
     margin-bottom: 5px;
-    font-weight: 500;
-    color: #555;
+    font-weight: bold;
 }
 
-input, select, textarea {
+input, textarea, select {
     width: 100%;
-    padding: 12px;
-    border: 2px solid #e1e1e1;
-    border-radius: 10px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
     font-size: 16px;
-    transition: border-color 0.3s;
-}
-
-input:focus, select:focus, textarea:focus {
-    border-color: #667eea;
-    outline: none;
 }
 
 button {
-    width: 100%;
-    padding: 15px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #007bff;
     color: white;
     border: none;
-    border-radius: 10px;
-    font-size: 16px;
-    font-weight: 600;
+    padding: 12px 20px;
+    border-radius: 5px;
     cursor: pointer;
-    transition: transform 0.2s;
+    font-size: 16px;
+    width: 100%;
 }
 
-button:active {
-    transform: scale(0.98);
+button:hover {
+    background: #0056b3;
+}
+
+button:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
 }
 
 .employee-item {
     background: #f8f9fa;
     padding: 15px;
-    border-radius: 10px;
+    border-radius: 5px;
     margin-bottom: 10px;
-    border-left: 4px solid #667eea;
+    border-left: 4px solid #007bff;
 }
 
 .result-item {
-    background: #e8f5e8;
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 8px;
-    border-left: 4px solid #4caf50;
+    background: #d4edda;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
 }
 
 .error-item {
-    background: #ffe8e8;
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 8px;
-    border-left: 4px solid #f44336;
+    background: #f8d7da;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
 }
 
 .hidden {
@@ -135,15 +120,7 @@ button:active {
     padding: 20px;
 }
 
-.spinner {
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #667eea;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 10px;
-}
+/* Стили для таблицы */
 table {
     width: 100%;
     border-collapse: collapse;
@@ -193,6 +170,29 @@ th {
 .empty-day {
     background: #f8f9fa;
 }
+
+.error-day {
+    background: #f8d7da;
+    color: #721c24;
+    font-weight: bold;
+}
+
+/* Стили для полей ввода периода */
+.date-range-inputs {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.date-range-inputs input {
+    flex: 1;
+}
+
+.date-range-inputs span {
+    color: #666;
+    font-size: 14px;
+}
+
 /* Стили для таблицы нераспределенных нарядов */
 .unassigned-table {
     width: 100%;
@@ -217,29 +217,4 @@ th {
 .unassigned-table tfoot {
     background: #fff3cd;
     font-weight: bold;
-}
-
-/* Стили для полей ввода периода */
-.date-range-inputs {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-.date-range-inputs input {
-    flex: 1;
-}
-
-.date-range-inputs span {
-    color: #666;
-    font-size: 14px;
-}
-/* Переключатель вида */
-.view-controls {
-    margin: 15px 0;
-    text-align: center;
-}
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
 }
