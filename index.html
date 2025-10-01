@@ -169,7 +169,22 @@
             <button id="generateBtn">🚀 Сгенерировать расписание</button>
         </div>
     </div>
+<!-- В разделе results-tab, после resultsContainer -->
+<div class="input-group">
+    <label>Формат отображения:</label>
+    <select id="viewType" onchange="changeViewType()">
+        <option value="list">Список</option>
+        <option value="table">Таблица</option>
+    </select>
+</div>
 
+<div id="tableView" class="hidden">
+    <div style="overflow-x: auto; max-width: 100%;">
+        <table id="calendarTable" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <!-- Таблица будет генерироваться здесь -->
+        </table>
+    </div>
+</div>
     <script src="scheduler.js"></script>
     <script src="script.js"></script>
 </body>
