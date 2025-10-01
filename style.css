@@ -14,7 +14,74 @@ body {
     border-radius: 10px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
+.tariff-cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+    margin: 20px 0;
+}
 
+.tariff-card {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 12px;
+    border: 2px solid #e9ecef;
+    text-align: center;
+}
+
+.tariff-card h4 {
+    margin-bottom: 10px;
+    color: #2c3e50;
+}
+
+.tariff-card ul {
+    text-align: left;
+    margin: 15px 0;
+    padding-left: 20px;
+}
+
+.tariff-card li {
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.tariff-card button {
+    margin-top: 10px;
+}
+
+.payment-info {
+    background: #e8f4fd;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+.status-active {
+    background: #d5f4e6;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #27ae60;
+}
+
+.status-demo {
+    background: #fff3cd;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #f39c12;
+}
+
+.status-inactive {
+    background: #fdeaea;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #e74c3c;
+}
+
+@media (min-width: 768px) {
+    .tariff-cards {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+}
 .hidden {
     display: none;
 }
