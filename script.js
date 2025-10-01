@@ -214,7 +214,94 @@ document.addEventListener('DOMContentLoaded', function() {
         window.Telegram.WebApp.expand();
         console.log("Telegram Web App инициализирован");
     }
+    // Построение таблицы с учетом отдыха после суточных нарядов
+function buildTable() {
+    const table = document.getElementById('calendarTable');
+    const results = appData.results;
     
+    // Собираем все даты из расписания (только те, где есть наряды)
+    const allDates = new Set();
+    Object.keys(appData.schedule).forEach(date => allDates.add(date));
+    
+    // Добавляем дни отдыха после суточных нарядов
+    results.assigned.forEach(shift => {
+        if (shift.type !== 7) { // Суточные наряды
+            allDates.add(getNextDay(shift.date));
+        }
+    });
+    
+    const dates = Array.from(allDates).sort();
+    
+    // Заголовок
+    let html = '<tr><th class="employee-cell">Сотрудник</th>';
+    dates.forEach(date => {
+        html += `<th title="${date}">${date.split('.')[0]}</th>`;
+    });
+    html += '<th>Итого</th></tr>';
+    
+    // Данные сотрудников
+    for (const employee of appData.employees) {
+        let row = `<tr><td class="employee-cell">${employee.name}</td>`;
+        let totalShifts = 0;
+        
+        for (const date of dates) {
+            let content = '';
+            let cellClass = '';
+            
+            // Проверяем отпуск
+            if (employee.vacationDays.includes(date)) {
+                content = 'Х';
+                cellClass = 'vacation-cell';
+            } 
+            // Проверяем назначенный наряд в эту дату
+            else {
+                const shiftOnThisDate = results.assigned.find(s => s.date === date && s.employee === employee.name);
+                if (shiftOnThisDate) {
+                    content = shiftOnThisDate.type;
+                    cellClass = 'shift-cell';
+                    totalShifts++;
+                } 
+                // Проверяем день отдыха после суточного наряда (только если нет наряда в этот день)
+                else {
+                    const prevDate = getPrevDay(date);
+                    const prevDayShift = results.assigned.find(s => 
+                        s.date === prevDate && 
+                        s.employee === employee.name && 
+                        s.type !== 7 // Только суточные наряды
+                    );
+                    if (prevDayShift) {
+                        content = '*';
+                        cellClass = 'rest-cell';
+                    }
+                }
+            }
+            
+            row += `<td class="${cellClass}">${content}</td>`;
+        }
+        
+        row += `<td><strong>${totalShifts}</strong></td></tr>`;
+        html += row;
+    }
+    
+    // Нераспределенные наряды
+    if (results.unassigned.length > 0) {
+        let row = '<tr><td class="employee-cell" style="background:#e74c3c;color:white;">Нераспределенные</td>';
+        
+        for (const date of dates) {
+            const count = results.unassigned.filter(s => s.date === date).length;
+            if (count > 0) {
+                row += `<td class="unassigned-cell">${count}</td>`;
+            } else {
+                row += '<td></td>';
+            }
+        }
+        
+        row += `<td><strong>${results.unassigned.length}</strong></td></tr>`;
+        html += row;
+    }
+    
+    table.innerHTML = html;
+}
     // Инициализация интерфейса
     initTabs();
     initEmployeeFields();
