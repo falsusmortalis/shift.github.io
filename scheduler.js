@@ -1,25 +1,4 @@
-class Employee {
-    constructor(id, name, priority = 0) {
-        this.id = id;
-        this.name = name;
-        this.priority = priority;
-        this.vacationDays = [];
-        this.preferredExclusionDays = [];
-    }
-}
-
-class Shift {
-    constructor(date, type, employeeId = null) {
-        this.date = new Date(date);
-        this.type = type;
-        this.employeeId = employeeId;
-        // Наряды 1-6 заканчиваются на следующий день, тип 7 - в тот же день
-        this.endDate = type !== 7 ? 
-            new Date(date.getTime() + 24 * 60 * 60 * 1000) : 
-            new Date(date);
-    }
-}
-
+// Простой и рабочий планировщик
 class ShiftScheduler {
     constructor() {
         this.employees = [];
@@ -28,24 +7,25 @@ class ShiftScheduler {
         this.employeeStats = new Map();
     }
 
-    addEmployee(name, vacationDays = [], preferredExclusionDays = [], priority = 0) {
-        const employeeId = this.employees.length + 1;
-        const employee = new Employee(employeeId, name, priority);
-        
-        employee.vacationDays = vacationDays.map(d => new Date(d));
-        employee.preferredExclusionDays = preferredExclusionDays.map(d => new Date(d));
+    addEmployee(name, vacationDays = [], priority = 0) {
+        const employee = {
+            id: this.employees.length + 1,
+            name: name,
+            vacationDays: vacationDays,
+            priority: priority
+        };
         
         this.employees.push(employee);
-        this.employeeStats.set(employeeId, {
+        this.employeeStats.set(employee.id, {
             shiftsCount: 0,
-            occupiedDays: new Set(),
             monthlySlots: 15
         });
         
-        return employeeId;
+        return employee.id;
     }
 
     generateSchedule(dailyShifts) {
+        console.log("Начинаем распределение...");
         this.assignedShifts = [];
         this.unassignedShifts = [];
         
@@ -54,187 +34,85 @@ class ShiftScheduler {
         this.employees.forEach(emp => {
             this.employeeStats.set(emp.id, {
                 shiftsCount: 0,
-                occupiedDays: new Set(),
                 monthlySlots: 15
             });
         });
 
         // Создаем все наряды
         const allShifts = [];
-        Object.entries(dailyShifts).forEach(([dateStr, shiftTypes]) => {
-            const date = this.parseDate(dateStr);
-            shiftTypes.forEach(type => {
-                allShifts.push(new Shift(date, type));
-            });
-        });
-
-        // Сортируем по дате
-        allShifts.sort((a, b) => a.date - b.date);
-
-        // Распределяем наряды
-        allShifts.forEach(shift => {
-            const availableEmployees = this.getAvailableEmployees(shift);
-            
-            if (availableEmployees.length > 0) {
-                // Выбираем лучшего сотрудника
-                availableEmployees.sort((a, b) => {
-                    const aStats = this.employeeStats.get(a.id);
-                    const bStats = this.employeeStats.get(b.id);
-                    
-                    // Сначала по приоритету (высокий лучше)
-                    if (a.priority !== b.priority) {
-                        return b.priority - a.priority;
-                    }
-                    // Затем по количеству нарядов (меньше лучше)
-                    return aStats.shiftsCount - bStats.shiftsCount;
+        for (const [dateStr, shiftTypes] of Object.entries(dailyShifts)) {
+            for (const type of shiftTypes) {
+                allShifts.push({
+                    date: dateStr,
+                    type: type
                 });
+            }
+        }
 
-                const bestEmployee = availableEmployees[0];
-                this.assignShiftToEmployee(shift, bestEmployee);
-            } else {
+        console.log(`Всего нарядов для распределения: ${allShifts.length}`);
+
+        // Простой алгоритм распределения
+        for (const shift of allShifts) {
+            let assigned = false;
+            
+            // Пробуем назначить наряд сотрудникам по очереди
+            for (const employee of this.employees) {
+                if (this.canAssignShift(employee, shift)) {
+                    this.assignShift(employee, shift);
+                    assigned = true;
+                    break;
+                }
+            }
+            
+            if (!assigned) {
                 this.unassignedShifts.push(shift);
             }
-        });
+        }
+        
+        console.log("Распределение завершено!");
     }
 
-    getAvailableEmployees(shift) {
-        const shiftDays = this.getShiftDays(shift);
-        const available = [];
-
-        this.employees.forEach(employee => {
-            const stats = this.employeeStats.get(employee.id);
-            
-            // 1. Проверка отпуска
-            const isOnVacation = shiftDays.some(day => 
-                employee.vacationDays.some(vacation => 
-                    this.isSameDay(vacation, day)
-                )
-            );
-            
-            if (isOnVacation) return;
-
-            // 2. Проверка лимита суточных нарядов
-            if (shift.type !== 7 && stats.monthlySlots <= 0) return;
-
-            // 3. Проверка занятости
-            const isBusy = shiftDays.some(day => stats.occupiedDays.has(day.getTime()));
-            if (isBusy) return;
-
-            // 4. Проверка предпочтительных дней исключения (мягкое ограничение)
-            const hasPreferredExclusion = shiftDays.some(day => 
-                employee.preferredExclusionDays.some(excl => 
-                    this.isSameDay(excl, day)
-                )
-            );
-
-            available.push({
-                employee,
-                hasPreferredExclusion
-            });
-        });
-
-        // Сначала возвращаем сотрудников без предпочтений исключения
-        const withoutExclusion = available.filter(a => !a.hasPreferredExclusion).map(a => a.employee);
-        if (withoutExclusion.length > 0) return withoutExclusion;
-
-        // Если таких нет, возвращаем всех
-        return available.map(a => a.employee);
+    canAssignShift(employee, shift) {
+        const stats = this.employeeStats.get(employee.id);
+        
+        // Проверяем отпуск
+        if (employee.vacationDays.includes(shift.date)) {
+            return false;
+        }
+        
+        // Проверяем лимит для суточных нарядов
+        if (shift.type !== 7 && stats.monthlySlots <= 0) {
+            return false;
+        }
+        
+        return true;
     }
 
-    assignShiftToEmployee(shift, employee) {
-        shift.employeeId = employee.id;
-        this.assignedShifts.push(shift);
+    assignShift(employee, shift) {
+        const assignedShift = {
+            ...shift,
+            employeeId: employee.id,
+            employeeName: employee.name
+        };
+        
+        this.assignedShifts.push(assignedShift);
         
         const stats = this.employeeStats.get(employee.id);
         stats.shiftsCount++;
         
-        // Отмечаем занятые дни
-        const shiftDays = this.getShiftDays(shift);
-        shiftDays.forEach(day => {
-            stats.occupiedDays.add(day.getTime());
-        });
-        
-        // Уменьшаем слоты для суточных нарядов
         if (shift.type !== 7) {
             stats.monthlySlots--;
         }
-    }
-
-    getShiftDays(shift) {
-        if (shift.type === 7) {
-            return [shift.date];
-        } else {
-            return [shift.date, new Date(shift.date.getTime() + 24 * 60 * 60 * 1000)];
-        }
-    }
-
-    isSameDay(date1, date2) {
-        return date1.getDate() === date2.getDate() &&
-               date1.getMonth() === date2.getMonth() &&
-               date1.getFullYear() === date2.getFullYear();
-    }
-
-    parseDate(dateStr) {
-        const [day, month, year] = dateStr.split('.').map(Number);
-        return new Date(year, month - 1, day);
-    }
-
-    formatDate(date) {
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${day}.${month}.${year}`;
-    }
-
-    analyzeUnassignedReason(shift) {
-        const shiftDays = this.getShiftDays(shift);
         
-        // Проверяем сотрудников не в отпуске
-        const availableEmployees = this.employees.filter(emp => 
-            !shiftDays.some(day => 
-                emp.vacationDays.some(vacation => this.isSameDay(vacation, day))
-            )
-        );
-
-        if (availableEmployees.length === 0) return "Все сотрудники в отпуске";
-
-        // Проверяем лимит
-        if (shift.type !== 7) {
-            const overloadedCount = availableEmployees.filter(emp => {
-                const stats = this.employeeStats.get(emp.id);
-                return stats.monthlySlots <= 0;
-            }).length;
-
-            if (overloadedCount === availableEmployees.length) return "Достигнут лимит нарядов";
-        }
-
-        // Проверяем занятость
-        const busyCount = availableEmployees.filter(emp => {
-            const stats = this.employeeStats.get(emp.id);
-            return shiftDays.some(day => stats.occupiedDays.has(day.getTime()));
-        }).length;
-
-        if (busyCount === availableEmployees.length) return "Все сотрудники заняты";
-
-        return "Недостаточно сотрудников";
+        console.log(`Назначен наряд: ${shift.date} тип ${shift.type} → ${employee.name}`);
     }
 
     getStatistics() {
-        const totalRequested = this.assignedShifts.length + this.unassignedShifts.length;
-        
         return {
-            total_employees: this.employees.length,
-            total_assigned: this.assignedShifts.length,
-            total_unassigned: this.unassignedShifts.length,
-            total_requested: totalRequested,
-            employee_loads: this.employees.map(emp => {
-                const stats = this.employeeStats.get(emp.id);
-                return {
-                    name: emp.name,
-                    shifts: stats.shiftsCount,
-                    remaining_slots: stats.monthlySlots
-                };
-            })
+            totalEmployees: this.employees.length,
+            totalAssigned: this.assignedShifts.length,
+            totalUnassigned: this.unassignedShifts.length,
+            totalRequested: this.assignedShifts.length + this.unassignedShifts.length
         };
     }
 }
