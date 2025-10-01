@@ -576,6 +576,103 @@ function formatResults(scheduler) {
         }
     };
 }
+
+// Функция для отображения нераспределенных нарядов в виде таблицы
+function displayUnassignedShiftsTable(unassignedShifts) {
+    if (!unassignedShifts || unassignedShifts.length === 0) {
+        return '<p>Все наряды распределены 🎉</p>';
+    }
+    
+    // Группируем по датам
+    const shiftsByDate = {};
+    unassignedShifts.forEach(shift => {
+        if (!shiftsByDate[shift.date]) {
+            shiftsByDate[shift.date] = [];
+        }
+        shiftsByDate[shift.date].push(shift.type);
+    });
+    
+    let html = `
+        <div style="margin: 15px 0;">
+            <h3>⚠️ Нераспределенные наряды</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <thead>
+                    <tr style="background: #f8f9fa;">
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Дата</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Типы нарядов</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Количество</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    const sortedDates = Object.keys(shiftsByDate).sort((a, b) => {
+        return new Date(a.split('.').reverse().join('-')) - new Date(b.split('.').reverse().join('-'));
+    });
+    
+    sortedDates.forEach(date => {
+        const shifts = shiftsByDate[date];
+        html += `
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;"><strong>${date}</strong></td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${shifts.join(', ')}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${shifts.length}</td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                </tbody>
+                <tfoot>
+                    <tr style="background: #fff3cd;">
+                        <td colspan="2" style="border: 1px solid #ddd; padding: 8px; text-align: right;"><strong>Всего нераспределено:</strong></td>
+                        <td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><strong>${unassignedShifts.length}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    `;
+    
+    return html;
+}
+
+// Обновляем функцию displayResults
+function displayResults() {
+    const container = document.getElementById('resultsContainer');
+    const results = appData.results;
+    
+    if (!results) return;
+    
+    let html = `
+        <div class="result-item">
+            <strong>📊 Статистика распределения:</strong><br>
+            Всего нарядов: ${results.statistics.total_requested}<br>
+            Распределено: ${results.statistics.total_assigned}<br>
+            Нераспределено: ${results.statistics.total_unassigned}<br>
+            Сотрудников: ${results.statistics.total_employees}
+        </div>
+    `;
+    
+    // Распределение по сотрудникам
+    html += '<h3>📋 Распределение по сотрудникам:</h3>';
+    for (const [empName, stats] of Object.entries(results.employee_stats)) {
+        html += `
+            <div class="result-item">
+                <strong>${empName}</strong><br>
+                Нарядов: ${stats.shifts_count}<br>
+                Осталось слотов: ${stats.remaining_slots}
+            </div>
+        `;
+    }
+    
+    // Добавляем таблицу нераспределенных нарядов
+    html += displayUnassignedShiftsTable(results.unassigned_shifts);
+    
+    container.innerHTML = html;
+    
+    // Строим календарную таблицу (изначально скрыта)
+    buildCalendarTable();
+}
 // Показать уведомление
 function showNotification(message, type) {
     console.log(type + ":", message);
