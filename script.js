@@ -1,136 +1,78 @@
-// Инициализация Telegram Web App
-let tg = window.Telegram.WebApp;
-tg.expand();
-tg.ready();
-
-// Создаем глобальный планировщик
+// Глобальные переменные
 let scheduler = new ShiftScheduler();
-
-// Данные приложения
 let appData = {
     employees: [],
-    schedule: {},
-    results: null
+    schedule: {}
 };
 
-// [Остальной код остается таким же как в предыдущей версии, но обновляем generateSchedule]
+// Инициализация при загрузке
+document.addEventListener('DOMContentLoaded', function() {
+    console.log("Приложение загружено!");
+    
+    // Инициализация Telegram Web App
+    if (typeof window.Telegram !== 'undefined') {
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+        console.log("Telegram Web App инициализирован");
+    }
+    
+    // Инициализация интерфейса
+    initTabs();
+    initEmployeeFields();
+    setupEventListeners();
+});
 
-// Генерация расписания - теперь полностью на клиенте
-async function generateSchedule() {
-    if (appData.employees.length === 0) {
-        showNotification('Сначала добавьте сотрудников', 'error');
-        return;
-    }
-    
-    if (Object.keys(appData.schedule).length === 0) {
-        showNotification('Сначала загрузите расписание', 'error');
-        return;
-    }
-    
-    document.getElementById('loading').classList.remove('hidden');
-    document.getElementById('generateBtn').disabled = true;
-    
-    try {
-        // Сбрасываем планировщик
-        scheduler = new ShiftScheduler();
-        
-        // Добавляем сотрудников в планировщик
-        appData.employees.forEach(empData => {
-            scheduler.addEmployee(
-                empData.name,
-                empData.vacation_days,
-                [], // preferred exclusion days
-                empData.priority
-            );
+// Инициализация вкладок
+function initTabs() {
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const tabName = this.getAttribute('data-tab');
+            showTab(tabName);
         });
-        
-        // Генерируем расписание
-        scheduler.generateSchedule(appData.schedule);
-        
-        // Форматируем результаты
-        appData.results = formatResults(scheduler);
-        displayResults();
-        
-        showNotification('Расписание успешно сгенерировано!', 'success');
-        
-    } catch (error) {
-        showNotification('Ошибка при распределении: ' + error.message, 'error');
-        console.error(error);
-    } finally {
-        document.getElementById('loading').classList.add('hidden');
-        document.getElementById('generateBtn').disabled = false;
-    }
+    });
 }
 
-// Форматируем результаты для отображения
-function formatResults(scheduler) {
-    const stats = scheduler.getStatistics();
-    
-    // Назначенные наряды
-    const assignedShifts = scheduler.assignedShifts.map(shift => {
-        const employee = scheduler.employees.find(e => e.id === shift.employeeId);
-        return {
-            date: scheduler.formatDate(shift.date),
-            type: shift.type,
-            employee_name: employee ? employee.name : 'Неизвестно'
-        };
-    });
-    
-    // Нераспределенные наряды
-    const unassignedShifts = scheduler.unassignedShifts.map(shift => ({
-        date: scheduler.formatDate(shift.date),
-        type: shift.type,
-        reason: scheduler.analyzeUnassignedReason(shift)
-    }));
-    
-    // Статистика по сотрудникам
-    const employeeStats = {};
-    scheduler.employees.forEach(emp => {
-        const stats = scheduler.employeeStats.get(emp.id);
-        employeeStats[emp.name] = {
-            shifts_count: stats.shiftsCount,
-            remaining_slots: stats.monthlySlots
-        };
-    });
-    
-    return {
-        assigned_shifts: assignedShifts,
-        unassigned_shifts: unassignedShifts,
-        employee_stats: employeeStats,
-        statistics: {
-            total_employees: stats.total_employees,
-            total_assigned: stats.total_assigned,
-            total_unassigned: stats.total_unassigned,
-            total_requested: stats.total_requested
-        }
-    };
-}
-
-// [Остальные функции остаются без изменений]
+// Показать вкладку
 function showTab(tabName) {
-    document.querySelectorAll('.tab-content').forEach(tab => {
+    console.log("Переключаем на вкладку:", tabName);
+    
+    // Скрыть все вкладки
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // Показать выбранную вкладку
+    document.getElementById(tabName + '-tab').classList.add('active');
+    
+    // Обновить активную кнопку
+    document.querySelectorAll('.tab').forEach(tab => {
         tab.classList.remove('active');
     });
-    document.querySelectorAll('.tab-button').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    document.getElementById(tabName + '-tab').classList.add('active');
-    event.target.classList.add('active');
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
 }
 
+// Инициализация полей сотрудников
+function initEmployeeFields() {
+    updateEmployeeFields();
+    
+    // Обновлять поля при изменении количества
+    document.getElementById('employeeCount').addEventListener('change', updateEmployeeFields);
+}
+
+// Обновление полей сотрудников
 function updateEmployeeFields() {
     const count = parseInt(document.getElementById('employeeCount').value);
     const container = document.getElementById('employeeFields');
-    container.innerHTML = '';
     
+    let html = '';
     for (let i = 0; i < count; i++) {
-        const employeeHtml = `
+        html += `
             <div class="employee-item">
                 <h3>Сотрудник ${i + 1}</h3>
                 <div class="input-group">
                     <label>Фамилия:</label>
-                    <input type="text" id="empName${i}" placeholder="Иванов">
+                    <input type="text" id="empName${i}" placeholder="Иванов" value="Сотрудник ${i + 1}">
                 </div>
                 <div class="input-group">
                     <label>Отпуск (через запятую ДД.ММ.ГГГГ):</label>
@@ -142,19 +84,35 @@ function updateEmployeeFields() {
                 </div>
             </div>
         `;
-        container.innerHTML += employeeHtml;
     }
+    
+    container.innerHTML = html;
 }
 
+// Настройка обработчиков событий
+function setupEventListeners() {
+    // Сохранение сотрудников
+    document.getElementById('saveEmployeesBtn').addEventListener('click', saveEmployees);
+    
+    // Обработка расписания
+    document.getElementById('parseScheduleBtn').addEventListener('click', parseSchedule);
+    
+    // Генерация расписания
+    document.getElementById('generateBtn').addEventListener('click', generateSchedule);
+}
+
+// Сохранение сотрудников
 function saveEmployees() {
+    console.log("Сохраняем сотрудников...");
+    
     const count = parseInt(document.getElementById('employeeCount').value);
     appData.employees = [];
     
     for (let i = 0; i < count; i++) {
-        const name = document.getElementById('empName' + i)?.value.trim();
+        const name = document.getElementById('empName' + i).value.trim();
         if (name) {
-            const vacationText = document.getElementById('empVacation' + i)?.value || '';
-            const priority = parseInt(document.getElementById('empPriority' + i)?.value) || 0;
+            const vacationText = document.getElementById('empVacation' + i).value || '';
+            const priority = parseInt(document.getElementById('empPriority' + i).value) || 0;
             
             const vacationDates = vacationText.split(',')
                 .map(d => d.trim())
@@ -162,7 +120,7 @@ function saveEmployees() {
             
             appData.employees.push({
                 name: name,
-                vacation_days: vacationDates,
+                vacationDays: vacationDates,
                 priority: priority
             });
         }
@@ -176,7 +134,10 @@ function saveEmployees() {
     }
 }
 
+// Парсинг расписания
 function parseSchedule() {
+    console.log("Парсим расписание...");
+    
     const scheduleText = document.getElementById('manualSchedule').value;
     if (!scheduleText.trim()) {
         showNotification('Введите расписание', 'error');
@@ -188,25 +149,36 @@ function parseSchedule() {
     let parsedDays = 0;
     let parsedShifts = 0;
     
-    for (let line of lines) {
-        line = line.trim();
-        if (!line || line.startsWith('дата')) continue;
-        
-        const parts = line.split(';');
-        if (parts.length >= 2) {
-            const dateStr = parts[0].trim();
-            const shiftsStr = parts[1].trim();
+    // Пример данных для теста, если поле пустое
+    if (scheduleText.trim() === '') {
+        appData.schedule = {
+            '01.10.2025': [1, 2, 3],
+            '02.10.2025': [1, 2],
+            '03.10.2025': [1, 2, 3, 4]
+        };
+        parsedDays = 3;
+        parsedShifts = 8;
+    } else {
+        for (let line of lines) {
+            line = line.trim();
+            if (!line || line.startsWith('дата')) continue;
             
-            // Простая валидация даты
-            if (dateStr.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
-                const shifts = shiftsStr.split(',')
-                    .map(s => parseInt(s.trim()))
-                    .filter(s => s >= 1 && s <= 7);
+            const parts = line.split(';');
+            if (parts.length >= 2) {
+                const dateStr = parts[0].trim();
+                const shiftsStr = parts[1].trim();
                 
-                if (shifts.length > 0) {
-                    appData.schedule[dateStr] = shifts;
-                    parsedDays++;
-                    parsedShifts += shifts.length;
+                // Простая валидация даты
+                if (dateStr.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
+                    const shifts = shiftsStr.split(',')
+                        .map(s => parseInt(s.trim()))
+                        .filter(s => s >= 1 && s <= 7);
+                    
+                    if (shifts.length > 0) {
+                        appData.schedule[dateStr] = shifts;
+                        parsedDays++;
+                        parsedShifts += shifts.length;
+                    }
                 }
             }
         }
@@ -216,61 +188,111 @@ function parseSchedule() {
         showNotification(`Расписание загружено: ${parsedDays} дней, ${parsedShifts} нарядов`, 'success');
         showTab('results');
     } else {
-        showNotification('Не удалось распарсить расписание', 'error');
+        showNotification('Не удалось распарсить расписание. Используйте формат: дата;наряды', 'error');
     }
 }
 
+// Генерация расписания
+function generateSchedule() {
+    console.log("Генерируем расписание...");
+    
+    if (appData.employees.length === 0) {
+        showNotification('Сначала добавьте сотрудников', 'error');
+        return;
+    }
+    
+    if (Object.keys(appData.schedule).length === 0) {
+        showNotification('Сначала загрузите расписание', 'error');
+        return;
+    }
+    
+    // Показать загрузку
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('generateBtn').disabled = true;
+    
+    // Даем небольшую задержку для отображения loading
+    setTimeout(() => {
+        try {
+            // Создаем новый планировщик
+            scheduler = new ShiftScheduler();
+            
+            // Добавляем сотрудников
+            appData.employees.forEach(empData => {
+                scheduler.addEmployee(
+                    empData.name,
+                    empData.vacationDays,
+                    empData.priority
+                );
+            });
+            
+            // Генерируем расписание
+            scheduler.generateSchedule(appData.schedule);
+            
+            // Показываем результаты
+            displayResults();
+            
+            showNotification('Расписание успешно сгенерировано!', 'success');
+            
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showNotification('Ошибка: ' + error.message, 'error');
+        } finally {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('generateBtn').disabled = false;
+        }
+    }, 500);
+}
+
+// Отображение результатов
 function displayResults() {
     const container = document.getElementById('resultsContainer');
-    const results = appData.results;
-    
-    if (!results) return;
+    const stats = scheduler.getStatistics();
     
     let html = `
         <div class="result-item">
             <strong>📊 Статистика распределения:</strong><br>
-            Всего нарядов: ${results.statistics.total_requested}<br>
-            Распределено: ${results.statistics.total_assigned}<br>
-            Нераспределено: ${results.statistics.total_unassigned}<br>
-            Сотрудников: ${results.statistics.total_employees}
+            Всего нарядов: ${stats.totalRequested}<br>
+            Распределено: ${stats.totalAssigned}<br>
+            Нераспределено: ${stats.totalUnassigned}<br>
+            Сотрудников: ${stats.totalEmployees}
         </div>
     `;
     
     // Распределение по сотрудникам
     html += '<h3>📋 Распределение по сотрудникам:</h3>';
-    for (const [empName, stats] of Object.entries(results.employee_stats)) {
+    scheduler.employees.forEach(employee => {
+        const employeeStats = scheduler.employeeStats.get(employee.id);
         html += `
             <div class="result-item">
-                <strong>${empName}</strong><br>
-                Нарядов: ${stats.shifts_count}<br>
-                Осталось слотов: ${stats.remaining_slots}
+                <strong>${employee.name}</strong><br>
+                Нарядов: ${employeeStats.shiftsCount}<br>
+                Осталось слотов: ${employeeStats.monthlySlots}
             </div>
         `;
-    }
+    });
     
-    // Назначенные наряды (первые 10)
-    if (results.assigned_shifts.length > 0) {
-        html += '<h3>✅ Назначенные наряды (первые 10):</h3>';
-        results.assigned_shifts.slice(0, 10).forEach(shift => {
+    // Назначенные наряды
+    if (scheduler.assignedShifts.length > 0) {
+        html += '<h3>✅ Назначенные наряды:</h3>';
+        scheduler.assignedShifts.slice(0, 10).forEach(shift => {
             html += `
                 <div class="result-item">
-                    ${shift.date} - Наряд ${shift.type} → ${shift.employee_name}
+                    ${shift.date} - Наряд ${shift.type} → ${shift.employeeName}
                 </div>
             `;
         });
-        if (results.assigned_shifts.length > 10) {
-            html += `<div class="result-item">... и еще ${results.assigned_shifts.length - 10} нарядов</div>`;
+        if (scheduler.assignedShifts.length > 10) {
+            html += `<div class="result-item">... и еще ${scheduler.assignedShifts.length - 10} нарядов</div>`;
         }
     }
     
     // Нераспределенные наряды
-    if (results.unassigned_shifts.length > 0) {
+    if (scheduler.unassignedShifts.length > 0) {
         html += '<h3>⚠️ Нераспределенные наряды:</h3>';
-        results.unassigned_shifts.forEach(shift => {
+        scheduler.unassignedShifts.forEach(shift => {
             html += `
                 <div class="error-item">
-                    ${shift.date} - Наряд ${shift.type}<br>
-                    <small>Причина: ${shift.reason}</small>
+                    ${shift.date} - Наряд ${shift.type}
                 </div>
             `;
         });
@@ -279,21 +301,18 @@ function displayResults() {
     container.innerHTML = html;
 }
 
+// Показать уведомление
 function showNotification(message, type) {
-    tg.showPopup({
-        title: type === 'success' ? 'Успех' : 'Ошибка',
-        message: message,
-        buttons: [{ type: 'ok' }]
-    });
-}
-
-// Инициализация при загрузке
-document.addEventListener('DOMContentLoaded', function() {
-    updateEmployeeFields();
+    console.log(type + ":", message);
     
-    // Показываем информацию о пользователе Telegram
-    const user = tg.initDataUnsafe.user;
-    if (user) {
-        console.log(`Добро пожаловать, ${user.first_name || 'пользователь'}!`);
+    // Простое уведомление через alert
+    alert((type === 'success' ? '✅ ' : '❌ ') + message);
+    
+    // Если в Telegram, используем его popup
+    if (typeof window.Telegram !== 'undefined') {
+        window.Telegram.WebApp.showPopup({
+            title: type === 'success' ? 'Успех' : 'Ошибка',
+            message: message
+        });
     }
-});
+}
