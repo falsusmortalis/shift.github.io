@@ -377,7 +377,7 @@ function distributeShifts() {
         return fairness;
     }
     
-    // Распределяем наряды в несколько проходов
+    // Распределяем наряды
     for (const shift of allShifts) {
         const occupiedDates = getOccupiedDatesForShift(shift);
         let bestCandidate = null;
@@ -511,7 +511,7 @@ function calculateAssignmentScore(employee, occupiedDates, empOccupiedDays, stat
     score += employee.priority * 5;
     
     // Бонус за меньшую текущую нагрузку (балансировка)
-    const avgLoad = Object.values(employeeLoad).reduce((a, b) => a + b, 0) / Object.values(employeeLoad).length;
+    const avgLoad = Object.values(this.employeeLoad || {}).reduce((a, b) => a + b, 0) / Math.max(Object.values(this.employeeLoad || {}).length, 1);
     const loadDifference = avgLoad - currentLoad;
     score += loadDifference * 8;
     
@@ -548,6 +548,11 @@ function showStats() {
     const container = document.getElementById('resultsContainer');
     const results = appData.results;
     
+    if (!results) {
+        container.innerHTML = '<p>Нет данных для отображения</p>';
+        return;
+    }
+    
     let html = `
         <div class="stats-grid">
             <div class="stat-card">
@@ -574,13 +579,14 @@ function showStats() {
     // Сортируем сотрудников по нагрузке
     const sortedEmployees = appData.employees.map(emp => {
         const stats = results.employeeStats[emp.name];
-        const load = results.employeeLoad[emp.name] || 0;
+        const load = (results.employeeLoad && results.employeeLoad[emp.name]) || 0;
         return { ...emp, stats, load };
     }).sort((a, b) => b.load - a.load);
     
     for (const employee of sortedEmployees) {
-        const load = results.employeeLoad[employee.name] || 0;
-        const maxLoad = Math.max(...Object.values(results.employeeLoad));
+        const load = (results.employeeLoad && results.employeeLoad[employee.name]) || 0;
+        const loads = results.employeeLoad ? Object.values(results.employeeLoad) : [0];
+        const maxLoad = Math.max(...loads);
         const loadPercentage = maxLoad > 0 ? Math.round((load / maxLoad) * 100) : 0;
         
         html += `
@@ -603,6 +609,11 @@ function showStats() {
 function buildTable() {
     const table = document.getElementById('calendarTable');
     const results = appData.results;
+    
+    if (!results) {
+        table.innerHTML = '<tr><td>Нет данных для отображения</td></tr>';
+        return;
+    }
     
     // Собираем все даты
     const allDates = new Set();
@@ -688,7 +699,7 @@ function buildTable() {
     }
     
     // Нераспределенные наряды
-    let unassignedToShow = results.unassigned;
+    let unassignedToShow = results.unassigned || [];
     
     if (unassignedToShow.length > 0) {
         let row = '<tr><td class="employee-cell" style="background:#e74c3c;color:white;">Нераспределенные</td>';
@@ -713,7 +724,14 @@ function buildTable() {
 // Показ нераспределенных нарядов
 function showUnassigned() {
     const container = document.getElementById('unassignedContainer');
-    let unassigned = appData.results.unassigned;
+    const results = appData.results;
+    
+    if (!results) {
+        container.innerHTML = '<p>Нет данных для отображения</p>';
+        return;
+    }
+    
+    let unassigned = results.unassigned || [];
     
     if (unassigned.length === 0) {
         container.innerHTML = '<div class="result-item">🎉 Все наряды распределены!</div>';
