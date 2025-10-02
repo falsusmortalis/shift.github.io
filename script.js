@@ -329,85 +329,139 @@ function generateSchedule() {
     }, 500);
 }
 
-// Алгоритм распределения с учетом занятости на 2 дня
+// Улучшенный алгоритм распределения нарядов
 function distributeShifts() {
     const assigned = [];
     const unassigned = [];
     const employeeStats = {};
-    const occupiedDays = {}; // Занятые дни для каждого сотрудника
+    const occupiedDays = {};
+    const employeeLoad = {}; // Нагрузка по сотрудникам
     
-    // Инициализация статистики и занятых дней
+    // Инициализация
     appData.employees.forEach(emp => {
         employeeStats[emp.name] = { 
             shiftsCount: 0, 
-            monthlySlots: 15 
+            monthlySlots: 15,
+            totalScore: 0
         };
         occupiedDays[emp.name] = new Set();
+        employeeLoad[emp.name] = 0;
     });
     
-    // Создаем все наряды и сортируем по дате
+    // Создаем все наряды и сортируем по сложности (суточные сначала)
     const allShifts = [];
     for (const [date, shiftTypes] of Object.entries(appData.schedule)) {
         for (const type of shiftTypes) {
-            allShifts.push({ date, type });
+            // Приоритет для суточных нарядов (они сложнее)
+            const priority = type === 7 ? 1 : 2;
+            allShifts.push({ date, type, priority });
         }
     }
     
-    // Сортируем по дате
-    allShifts.sort((a, b) => a.date.localeCompare(b.date));
+    // Сортируем: сначала суточные наряды, потом по дате
+    allShifts.sort((a, b) => {
+        if (b.priority !== a.priority) return b.priority - a.priority;
+        return a.date.localeCompare(b.date);
+    });
     
     console.log(`Всего нарядов для распределения: ${allShifts.length}`);
     
-    // Распределяем наряды
+    // Функция для расчета "справедливости" распределения
+    function calculateFairness() {
+        const loads = Object.values(employeeLoad);
+        const avgLoad = loads.reduce((a, b) => a + b, 0) / loads.length;
+        let fairness = 0;
+        loads.forEach(load => {
+            fairness += Math.abs(load - avgLoad);
+        });
+        return fairness;
+    }
+    
+    // Распределяем наряды в несколько проходов
     for (const shift of allShifts) {
         const occupiedDates = getOccupiedDatesForShift(shift);
-        let assignedEmployee = null;
-        let bestScore = -1;
+        let bestCandidate = null;
+        let bestScore = -Infinity;
         
-        // Ищем подходящего сотрудника с учетом приоритета и желаемых дней
+        // Оценка каждого сотрудника для этого наряда
         for (const employee of appData.employees) {
-            const score = calculateAssignmentScore(employee, occupiedDates, occupiedDays[employee.name], employeeStats[employee.name], shift.type);
+            let score = calculateAssignmentScore(
+                employee, 
+                occupiedDates, 
+                occupiedDays[employee.name], 
+                employeeStats[employee.name], 
+                shift.type,
+                employeeLoad[employee.name]
+            );
             
-            if (score > bestScore) {
-                assignedEmployee = employee;
+            // Учитываем текущую нагрузку для балансировки
+            const currentFairness = calculateFairness();
+            
+            // Временное назначаем наряд и смотрим на справедливость
+            const tempLoad = {...employeeLoad};
+            tempLoad[employee.name] += (shift.type === 7 ? 1 : 2);
+            
+            // Временная "справедливость"
+            let tempFairness = 0;
+            const tempLoads = Object.values(tempLoad);
+            const tempAvgLoad = tempLoads.reduce((a, b) => a + b, 0) / tempLoads.length;
+            tempLoads.forEach(load => {
+                tempFairness += Math.abs(load - tempAvgLoad);
+            });
+            
+            // Бонус за улучшение справедливости
+            if (tempFairness < currentFairness) {
+                score += 10;
+            }
+            
+            if (score > bestScore && score > 0) {
+                bestCandidate = employee;
                 bestScore = score;
             }
         }
         
-        if (assignedEmployee && bestScore > 0) {
+        if (bestCandidate) {
             // Назначаем наряд
             assigned.push({
                 date: shift.date,
                 type: shift.type,
-                employee: assignedEmployee.name
+                employee: bestCandidate.name
             });
             
             // Обновляем статистику
-            employeeStats[assignedEmployee.name].shiftsCount++;
+            employeeStats[bestCandidate.name].shiftsCount++;
+            employeeLoad[bestCandidate.name] += (shift.type === 7 ? 1 : 2);
+            
             if (shift.type !== 7) {
-                employeeStats[assignedEmployee.name].monthlySlots--;
+                employeeStats[bestCandidate.name].monthlySlots--;
             }
             
             // Помечаем дни как занятые
             occupiedDates.forEach(date => {
-                occupiedDays[assignedEmployee.name].add(date);
+                occupiedDays[bestCandidate.name].add(date);
             });
             
-            console.log(`Назначен наряд: ${shift.date} тип ${shift.type} → ${assignedEmployee.name} (оценка: ${bestScore})`);
+            console.log(`Назначен наряд: ${shift.date} тип ${shift.type} → ${bestCandidate.name} (оценка: ${bestScore.toFixed(2)})`);
         } else {
             unassigned.push({
                 date: shift.date,
                 type: shift.type
             });
-            
-            console.log(`Нераспределен наряд: ${shift.date} тип ${shift.type}`);
+            console.log(`❌ Нераспределен наряд: ${shift.date} тип ${shift.type}`);
         }
     }
+    
+    // Выводим статистику по нагрузке
+    console.log("📊 Статистика нагрузки:");
+    Object.entries(employeeLoad).forEach(([name, load]) => {
+        console.log(`   ${name}: ${load} баллов нагрузки`);
+    });
     
     return {
         assigned: assigned,
         unassigned: unassigned,
         employeeStats: employeeStats,
+        employeeLoad: employeeLoad,
         total: {
             employees: appData.employees.length,
             assigned: assigned.length,
@@ -417,11 +471,11 @@ function distributeShifts() {
     };
 }
 
-// Расчет оценки для назначения наряда
-function calculateAssignmentScore(employee, occupiedDates, empOccupiedDays, stats, shiftType) {
+// Улучшенная система оценок
+function calculateAssignmentScore(employee, occupiedDates, empOccupiedDays, stats, shiftType, currentLoad) {
     let score = 100;
     
-    // Проверка отпуска - абсолютное запрещение
+    // 1. Абсолютные запреты (0 баллов)
     for (const date of occupiedDates) {
         if (employee.vacationDays.includes(date)) {
             return 0;
@@ -440,18 +494,33 @@ function calculateAssignmentScore(employee, occupiedDates, empOccupiedDays, stat
         }
     }
     
+    // 2. Штрафы за нежелательные условия
+    
     // Штраф за назначение на желаемые дни отдыха
+    let preferredPenalty = 0;
     for (const date of occupiedDates) {
         if (employee.preferredDays.includes(date)) {
-            score -= 30; // Существенный штраф, но не полный запрет
+            preferredPenalty += 40; // Увеличил штраф
         }
     }
+    score -= preferredPenalty;
     
-    // Бонус за приоритет сотрудника
-    score += employee.priority * 2;
+    // 3. Бонусы
+    
+    // Бонус за приоритет сотрудника (сильное влияние)
+    score += employee.priority * 5;
+    
+    // Бонус за меньшую текущую нагрузку (балансировка)
+    const avgLoad = Object.values(employeeLoad).reduce((a, b) => a + b, 0) / Object.values(employeeLoad).length;
+    const loadDifference = avgLoad - currentLoad;
+    score += loadDifference * 8;
     
     // Бонус за меньшее количество назначенных нарядов
-    score += (15 - stats.shiftsCount) * 1;
+    score += (15 - stats.shiftsCount) * 3;
+    
+    // Небольшая случайность для разнообразия (±5%)
+    const randomFactor = 0.95 + Math.random() * 0.1;
+    score *= randomFactor;
     
     return Math.max(0, score);
 }
@@ -499,18 +568,30 @@ function showStats() {
             </div>
         </div>
         
-        <h3>📊 По сотрудникам:</h3>
+        <h3>📊 Нагрузка по сотрудникам:</h3>
     `;
     
-    for (const [name, stats] of Object.entries(results.employeeStats)) {
-        let employeeShifts = results.assigned.filter(s => s.employee === name).length;
+    // Сортируем сотрудников по нагрузке
+    const sortedEmployees = appData.employees.map(emp => {
+        const stats = results.employeeStats[emp.name];
+        const load = results.employeeLoad[emp.name] || 0;
+        return { ...emp, stats, load };
+    }).sort((a, b) => b.load - a.load);
+    
+    for (const employee of sortedEmployees) {
+        const load = results.employeeLoad[employee.name] || 0;
+        const maxLoad = Math.max(...Object.values(results.employeeLoad));
+        const loadPercentage = maxLoad > 0 ? Math.round((load / maxLoad) * 100) : 0;
         
         html += `
             <div class="result-item">
-                <strong>${name}</strong><br>
-                Нарядов: ${employeeShifts}<br>
-                Осталось слотов: ${stats.monthlySlots}<br>
-                Приоритет: ${appData.employees.find(e => e.name === name)?.priority || 0}
+                <strong>${employee.name}</strong><br>
+                Нарядов: ${employee.stats.shiftsCount}<br>
+                Нагрузка: ${load} баллов<br>
+                Приоритет: ${employee.priority}<br>
+                <div style="background: #ecf0f1; border-radius: 4px; margin-top: 5px;">
+                    <div style="background: #3498db; height: 8px; border-radius: 4px; width: ${loadPercentage}%"></div>
+                </div>
             </div>
         `;
     }
