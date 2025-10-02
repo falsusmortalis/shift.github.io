@@ -335,19 +335,19 @@ function distributeShifts() {
     const unassigned = [];
     const employeeStats = {};
     const occupiedDays = {};
-    const employeeLoad = {}; // Нагрузка по сотрудникам
+    const employeeLoad = {};
     
     // Инициализация
     appData.employees.forEach(emp => {
         employeeStats[emp.name] = { 
             shiftsCount: 0, 
-            monthlySlots: 15
+            monthlySlots: 31  // Увеличили лимит слотов
         };
         occupiedDays[emp.name] = new Set();
         employeeLoad[emp.name] = 0;
     });
     
-    // Создаем все наряды и сортируем по сложности (суточные сначала)
+    // Создаем все наряды и сортируем по дате
     const allShifts = [];
     for (const [date, shiftTypes] of Object.entries(appData.schedule)) {
         for (const type of shiftTypes) {
