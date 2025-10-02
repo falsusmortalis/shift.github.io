@@ -5,14 +5,6 @@ let appData = {
     results: null
 };
 
-// Система оплаты и доступа
-let userSubscription = {
-    type: 'demo', // 'demo', 'single', 'monthly'
-    generationsLeft: 999,
-    expiryDate: null,
-    isActive: true
-};
-
 // Инициализация при загрузке
 document.addEventListener('DOMContentLoaded', function() {
     console.log("Приложение загружено!");
@@ -28,7 +20,6 @@ document.addEventListener('DOMContentLoaded', function() {
     initTabs();
     initEmployeeFields();
     setupEventListeners();
-    initSubscriptionSystem();
     
     console.log("Приложение готово к работе");
 });
@@ -105,6 +96,7 @@ function updateEmployeeFields() {
                 <div class="input-group">
                     <label>Приоритет (0-10):</label>
                     <input type="number" id="priority${i}" min="0" max="10" value="0">
+                    <small>0 - обычный, 1-5 - повышенный, 6-10 - высокий приоритет</small>
                 </div>
             </div>
         `;
@@ -176,7 +168,7 @@ function saveEmployees() {
                 priority: priority
             });
             
-            console.log(`Добавлен сотрудник: ${name}, отпуск: ${vacationDays.length} дней, желаемые дни: ${preferredDays.length}`);
+            console.log(`Добавлен сотрудник: ${name}, отпуск: ${vacationDays.length} дней, желаемые дни: ${preferredDays.length}, приоритет: ${priority}`);
         }
     }
     
@@ -297,31 +289,9 @@ function parseSchedule() {
     }
 }
 
-// Проверка доступа при генерации расписания
-function checkAccess() {
-    if (!userSubscription.isActive) {
-        alert('❌ Нет активной подписки. Активируйте демо или купите доступ.');
-        return false;
-    }
-    
-    // Проверка лимита генераций для платных подписок
-    if (userSubscription.type !== 'demo' && userSubscription.generationsLeft <= 0) {
-        alert('❌ Лимит генераций исчерпан. Купите новую подписку.');
-        showTab('payment');
-        return false;
-    }
-    
-    return true;
-}
-
 // Генерация расписания
 function generateSchedule() {
     console.log("Генерируем расписание...");
-    
-    // Проверка доступа
-    if (!checkAccess()) {
-        return;
-    }
     
     if (appData.employees.length === 0) {
         alert('❌ Сначала добавьте сотрудников');
@@ -346,13 +316,6 @@ function generateSchedule() {
             const results = distributeShifts();
             appData.results = results;
             displayResults();
-            
-            // Уменьшаем счетчик генераций для платных подписок
-            if (userSubscription.type !== 'demo') {
-                userSubscription.generationsLeft--;
-                saveSubscription();
-                updateStatusDisplay();
-            }
             
             alert('✅ Расписание успешно сгенерировано!');
             
@@ -509,13 +472,6 @@ function displayResults() {
     buildTable();
     showUnassigned();
     changeView(); // Показываем выбранный вид
-    
-    // Показываем предупреждение в демо-режиме
-    if (userSubscription.type === 'demo') {
-        document.getElementById('demoWarning').classList.remove('hidden');
-    } else {
-        document.getElementById('demoWarning').classList.add('hidden');
-    }
 }
 
 // Показ статистики
@@ -523,33 +479,18 @@ function showStats() {
     const container = document.getElementById('resultsContainer');
     const results = appData.results;
     
-    // Фильтруем данные для демо-режима (первые 7 дней)
-    let filteredAssigned = results.assigned;
-    let filteredUnassigned = results.unassigned;
-    
-    if (userSubscription.type === 'demo') {
-        filteredAssigned = results.assigned.filter(shift => {
-            const day = parseInt(shift.date.split('.')[0]);
-            return day <= 7;
-        });
-        filteredUnassigned = results.unassigned.filter(shift => {
-            const day = parseInt(shift.date.split('.')[0]);
-            return day <= 7;
-        });
-    }
-    
     let html = `
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-number">${filteredAssigned.length + filteredUnassigned.length}</div>
+                <div class="stat-number">${results.total.total}</div>
                 <div class="stat-label">Всего нарядов</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">${filteredAssigned.length}</div>
+                <div class="stat-number">${results.total.assigned}</div>
                 <div class="stat-label">Распределено</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">${filteredUnassigned.length}</div>
+                <div class="stat-number">${results.total.unassigned}</div>
                 <div class="stat-label">Нераспределено</div>
             </div>
             <div class="stat-card">
@@ -562,14 +503,14 @@ function showStats() {
     `;
     
     for (const [name, stats] of Object.entries(results.employeeStats)) {
-        // Считаем наряды сотрудника только за первые 7 дней в демо-режиме
-        let employeeShifts = filteredAssigned.filter(s => s.employee === name).length;
+        let employeeShifts = results.assigned.filter(s => s.employee === name).length;
         
         html += `
             <div class="result-item">
                 <strong>${name}</strong><br>
                 Нарядов: ${employeeShifts}<br>
-                Осталось слотов: ${stats.monthlySlots}
+                Осталось слотов: ${stats.monthlySlots}<br>
+                Приоритет: ${appData.employees.find(e => e.name === name)?.priority || 0}
             </div>
         `;
     }
@@ -596,14 +537,6 @@ function buildTable() {
     });
     
     let dates = Array.from(allDates).sort();
-    
-    // Фильтруем даты для демо-режима (первые 7 дней)
-    if (userSubscription.type === 'demo') {
-        dates = dates.filter(date => {
-            const day = parseInt(date.split('.')[0]);
-            return day <= 7;
-        });
-    }
     
     // Заголовок
     let html = '<tr><th class="employee-cell">Сотрудник</th>';
@@ -675,12 +608,6 @@ function buildTable() {
     
     // Нераспределенные наряды
     let unassignedToShow = results.unassigned;
-    if (userSubscription.type === 'demo') {
-        unassignedToShow = results.unassigned.filter(shift => {
-            const day = parseInt(shift.date.split('.')[0]);
-            return day <= 7;
-        });
-    }
     
     if (unassignedToShow.length > 0) {
         let row = '<tr><td class="employee-cell" style="background:#e74c3c;color:white;">Нераспределенные</td>';
@@ -706,14 +633,6 @@ function buildTable() {
 function showUnassigned() {
     const container = document.getElementById('unassignedContainer');
     let unassigned = appData.results.unassigned;
-    
-    // Фильтруем для демо-режима
-    if (userSubscription.type === 'demo') {
-        unassigned = unassigned.filter(shift => {
-            const day = parseInt(shift.date.split('.')[0]);
-            return day <= 7;
-        });
-    }
     
     if (unassigned.length === 0) {
         container.innerHTML = '<div class="result-item">🎉 Все наряды распределены!</div>';
@@ -763,123 +682,12 @@ function changeView() {
     document.getElementById(viewType + 'View').classList.remove('hidden');
 }
 
-// Система оплаты
-function initSubscriptionSystem() {
-    // Загружаем данные из localStorage
-    const saved = localStorage.getItem('shiftScheduler_subscription');
-    if (saved) {
-        userSubscription = JSON.parse(saved);
-    } else {
-        // Активируем демо по умолчанию
-        activateDemo();
-    }
-    updateStatusDisplay();
-}
-
-// Активация демо-режима
-function activateDemo() {
-    userSubscription = {
-        type: 'demo',
-        generationsLeft: 999,
-        expiryDate: null,
-        isActive: true
-    };
-    saveSubscription();
-    updateStatusDisplay();
-    alert('✅ Демо-режим активирован! Распределение работает на все дни, но показываются только первые 7 дней.');
-}
-
-// Показ формы оплаты
-function showPaymentForm(type) {
-    const amount = type === 'monthly' ? '300' : '100';
-    document.getElementById('paymentAmount').textContent = amount;
-    document.getElementById('paymentForm').classList.remove('hidden');
-    
-    // Сохраняем выбранный тип для активации
-    document.getElementById('paymentForm').dataset.paymentType = type;
-}
-
-// Активация премиум доступа
-function activatePremium() {
-    const code = document.getElementById('paymentCode').value.trim();
-    const type = document.getElementById('paymentForm').dataset.paymentType;
-    
-    if (!code) {
-        alert('❌ Введите код подтверждения');
-        return;
-    }
-    
-    // Простейшая проверка кода (в реальном приложении нужно проверять через бэкенд)
-    if (code.length >= 4) {
-        userSubscription = {
-            type: type,
-            generationsLeft: type === 'monthly' ? 7 : 1,
-            expiryDate: type === 'monthly' ? getDateInFuture(30) : null,
-            isActive: true
-        };
-        
-        saveSubscription();
-        updateStatusDisplay();
-        document.getElementById('paymentForm').classList.add('hidden');
-        document.getElementById('paymentCode').value = '';
-        
-        alert('✅ Премиум доступ активирован! Теперь доступны все функции.');
-        
-        // Перегенерируем расписание, если есть данные
-        if (appData.results) {
-            generateSchedule();
-        }
-    } else {
-        alert('❌ Неверный код подтверждения');
-    }
-}
-
-// Получение даты в будущем
-function getDateInFuture(days) {
-    const date = new Date();
-    date.setDate(date.getDate() + days);
-    return date.toISOString();
-}
-
-// Сохранение подписки
-function saveSubscription() {
-    localStorage.setItem('shiftScheduler_subscription', JSON.stringify(userSubscription));
-}
-
-// Обновление отображения статуса
-function updateStatusDisplay() {
-    const statusInfo = document.getElementById('statusInfo');
-    
-    if (!userSubscription.isActive) {
-        statusInfo.innerHTML = `
-            <div class="status-inactive">
-                <h4>❌ Нет активной подписки</h4>
-                <p>Активируйте демо-режим или купите премиум доступ</p>
-            </div>
-        `;
-        return;
-    }
-    
-    if (userSubscription.type === 'demo') {
-        statusInfo.innerHTML = `
-            <div class="status-demo">
-                <h4>🎯 Демо-режим</h4>
-                <p>Распределение на все дни, показ только первых 7 дней</p>
-                <p><strong>Генераций осталось:</strong> Неограниченно</p>
-            </div>
-        `;
-    } else {
-        const typeName = userSubscription.type === 'monthly' ? 'Месячная подписка' : 'Разовый доступ';
-        const expiryText = userSubscription.expiryDate ? 
-            `Действует до: ${new Date(userSubscription.expiryDate).toLocaleDateString('ru-RU')}` : 
-            'Действует 1 генерацию';
-        
-        statusInfo.innerHTML = `
-            <div class="status-active">
-                <h4>💎 ${typeName}</h4>
-                <p><strong>Генераций осталось:</strong> ${userSubscription.generationsLeft}</p>
-                <p>${expiryText}</p>
-            </div>
-        `;
-    }
+// Функции для вкладки поддержки
+function copyPhoneNumber() {
+    const phoneNumber = '+7 989 275 82 74';
+    navigator.clipboard.writeText(phoneNumber).then(function() {
+        alert('✅ Номер телефона скопирован: ' + phoneNumber);
+    }, function() {
+        prompt('Скопируйте номер телефона:', phoneNumber);
+    });
 }
