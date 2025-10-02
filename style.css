@@ -1,19 +1,259 @@
-/* Все стили уже включены в HTML файл выше */
-/* Этот файл оставлен для совместимости */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
 
 body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 20px;
-    background: #f5f5f5;
+    background: #f0f2f5;
+    padding: 15px;
+    color: #333;
 }
 
 .container {
+    max-width: 100%;
     background: white;
+    border-radius: 12px;
     padding: 20px;
-    border-radius: 10px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
 }
+
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #2c3e50;
+    font-size: 22px;
+}
+
+.tabs {
+    display: flex;
+    margin-bottom: 20px;
+    background: #ecf0f1;
+    border-radius: 8px;
+    padding: 4px;
+    flex-wrap: wrap;
+}
+
+.tab {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s;
+    min-width: 120px;
+    margin: 2px;
+}
+
+.tab.active {
+    background: white;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    color: #3498db;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.input-group {
+    margin-bottom: 16px;
+}
+
+label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+input, textarea, select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+}
+
+input:focus, textarea:focus, select:focus {
+    border-color: #3498db;
+    outline: none;
+}
+
+button {
+    width: 100%;
+    padding: 15px;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background 0.3s;
+}
+
+button:hover {
+    background: #2980b9;
+}
+
+button:disabled {
+    background: #bdc3c7;
+    cursor: not-allowed;
+}
+
+.employee-item {
+    background: #f8f9fa;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    border-left: 4px solid #3498db;
+}
+
+.result-item {
+    background: #d5f4e6;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    border-left: 4px solid #27ae60;
+}
+
+.error-item {
+    background: #fdeaea;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    border-left: 4px solid #e74c3c;
+}
+
+.hidden {
+    display: none;
+}
+
+.loading {
+    text-align: center;
+    padding: 30px;
+    color: #7f8c8d;
+}
+
+.date-range {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.date-range input {
+    flex: 1;
+}
+
+.date-range span {
+    color: #7f8c8d;
+    font-size: 14px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    font-size: 12px;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 6px;
+    text-align: center;
+    min-width: 35px;
+}
+
+th {
+    background: #34495e;
+    color: white;
+    font-weight: 600;
+}
+
+.employee-cell {
+    text-align: left;
+    font-weight: 600;
+    background: #ecf0f1;
+    position: sticky;
+    left: 0;
+    min-width: 100px;
+}
+
+.vacation-cell {
+    background: #f39c12;
+    color: white;
+    font-weight: bold;
+}
+
+.shift-cell {
+    background: #27ae60;
+    color: white;
+    font-weight: bold;
+}
+
+.rest-cell {
+    background: #f1c40f;
+    color: #2c3e50;
+    font-weight: bold;
+}
+
+.unassigned-cell {
+    background: #e74c3c;
+    color: white;
+    font-weight: bold;
+}
+
+.preferred-rest-cell {
+    background: #9b59b6;
+    color: white;
+    font-weight: bold;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.stat-card {
+    background: #ecf0f1;
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 24px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #7f8c8d;
+}
+
+.shift-info {
+    margin: 15px 0;
+    padding: 10px;
+    background: #e8f4fd;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+/* Стили для системы оплаты */
 .tariff-cards {
     display: grid;
     grid-template-columns: 1fr;
@@ -27,6 +267,12 @@ body {
     border-radius: 12px;
     border: 2px solid #e9ecef;
     text-align: center;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.tariff-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 
 .tariff-card h4 {
@@ -46,7 +292,19 @@ body {
 }
 
 .tariff-card button {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    width: 100%;
     margin-top: 10px;
+}
+
+.tariff-card button:hover {
+    background: #2980b9;
 }
 
 .payment-info {
@@ -54,6 +312,7 @@ body {
     padding: 15px;
     border-radius: 8px;
     margin: 15px 0;
+    border-left: 4px solid #3498db;
 }
 
 .status-active {
@@ -77,11 +336,36 @@ body {
     border-left: 4px solid #e74c3c;
 }
 
+.demo-warning {
+    background: #fff3cd;
+    border: 2px solid #f39c12;
+    padding: 10px;
+    border-radius: 8px;
+    margin: 10px 0;
+    text-align: center;
+    font-weight: bold;
+}
+
+.preferred-days-input {
+    margin-top: 8px;
+}
+
+.preferred-days-input input {
+    margin-bottom: 5px;
+}
+
+.add-preferred-day {
+    background: #9b59b6;
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
+.add-preferred-day:hover {
+    background: #8e44ad;
+}
+
 @media (min-width: 768px) {
     .tariff-cards {
         grid-template-columns: 1fr 1fr 1fr;
     }
-}
-.hidden {
-    display: none;
 }
