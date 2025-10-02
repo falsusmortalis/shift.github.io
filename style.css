@@ -253,15 +253,42 @@ th {
     font-size: 14px;
 }
 
-/* Стили для системы оплаты */
-.tariff-cards {
+/* Стили для системы поддержки */
+.donate-header {
+    text-align: center;
+    margin-bottom: 20px;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+}
+
+.donate-header h3 {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+.creator-message {
+    background: #fff3cd;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border-left: 4px solid #f39c12;
+}
+
+.creator-message h4 {
+    color: #e67e22;
+    margin-bottom: 10px;
+}
+
+.donate-methods {
     display: grid;
     grid-template-columns: 1fr;
     gap: 15px;
     margin: 20px 0;
 }
 
-.tariff-card {
+.donate-method-card {
     background: #f8f9fa;
     padding: 20px;
     border-radius: 12px;
@@ -270,102 +297,96 @@ th {
     transition: transform 0.3s, box-shadow 0.3s;
 }
 
-.tariff-card:hover {
+.donate-method-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 
-.tariff-card h4 {
+.donate-method-card h5 {
     margin-bottom: 10px;
     color: #2c3e50;
+    font-size: 18px;
 }
 
-.tariff-card ul {
-    text-align: left;
+.phone-number {
+    font-size: 20px;
+    font-weight: bold;
+    color: #e74c3c;
+    margin: 10px 0;
+    padding: 10px;
+    background: #fdeaea;
+    border-radius: 8px;
+    border: 2px solid #e74c3c;
+}
+
+.tg-link {
+    display: inline-block;
+    background: #0088cc;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    margin-top: 10px;
+    transition: background 0.3s;
+}
+
+.tg-link:hover {
+    background: #0077b3;
+}
+
+.donate-footer {
+    background: #d5f4e6;
+    padding: 20px;
+    border-radius: 12px;
+    margin-top: 20px;
+}
+
+.donate-footer ul {
     margin: 15px 0;
     padding-left: 20px;
 }
 
-.tariff-card li {
+.donate-footer li {
     margin-bottom: 8px;
-    font-size: 14px;
 }
 
-.tariff-card button {
-    background: #3498db;
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    width: 100%;
-    margin-top: 10px;
+.thank-you {
+    text-align: center;
+    font-style: italic;
+    color: #7f8c8d;
+    margin-top: 15px;
+    font-size: 16px;
 }
 
-.tariff-card button:hover {
-    background: #2980b9;
-}
-
-.payment-info {
+.priority-info {
     background: #e8f4fd;
     padding: 15px;
     border-radius: 8px;
-    margin: 15px 0;
+    margin-bottom: 20px;
     border-left: 4px solid #3498db;
 }
 
-.status-active {
-    background: #d5f4e6;
-    padding: 15px;
-    border-radius: 8px;
-    border-left: 4px solid #27ae60;
+.priority-info h4 {
+    color: #2c3e50;
+    margin-bottom: 10px;
 }
 
-.status-demo {
-    background: #fff3cd;
-    padding: 15px;
-    border-radius: 8px;
-    border-left: 4px solid #f39c12;
-}
-
-.status-inactive {
-    background: #fdeaea;
-    padding: 15px;
-    border-radius: 8px;
-    border-left: 4px solid #e74c3c;
-}
-
-.demo-warning {
-    background: #fff3cd;
-    border: 2px solid #f39c12;
-    padding: 10px;
-    border-radius: 8px;
+.priority-info ul {
     margin: 10px 0;
-    text-align: center;
-    font-weight: bold;
+    padding-left: 20px;
 }
 
-.preferred-days-input {
-    margin-top: 8px;
-}
-
-.preferred-days-input input {
+.priority-info li {
     margin-bottom: 5px;
 }
 
-.add-preferred-day {
-    background: #9b59b6;
-    padding: 8px 12px;
-    font-size: 14px;
-}
-
-.add-preferred-day:hover {
-    background: #8e44ad;
-}
-
 @media (min-width: 768px) {
-    .tariff-cards {
-        grid-template-columns: 1fr 1fr 1fr;
+    .donate-methods {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .tabs {
+        flex-wrap: nowrap;
     }
 }
