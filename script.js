@@ -226,20 +226,28 @@ function formatDate(date) {
     return `${day}.${month}.${year}`;
 }
 
-// Получение следующего дня
+// Получение следующего дня (исправленная версия)
 function getNextDay(dateStr) {
     const date = parseDate(dateStr);
     if (!date) return null;
-    date.setDate(date.getDate() + 1);
-    return formatDate(date);
+    
+    // Создаем копию даты чтобы не мутировать оригинал
+    const nextDate = new Date(date);
+    nextDate.setDate(nextDate.getDate() + 1);
+    
+    return formatDate(nextDate);
 }
 
-// Получение предыдущего дня
+// Получение предыдущего дня (исправленная версия)
 function getPrevDay(dateStr) {
     const date = parseDate(dateStr);
     if (!date) return null;
-    date.setDate(date.getDate() - 1);
-    return formatDate(date);
+    
+    // Создаем копию даты чтобы не мутировать оригинал
+    const prevDate = new Date(date);
+    prevDate.setDate(prevDate.getDate() - 1);
+    
+    return formatDate(prevDate);
 }
 
 // Парсинг расписания
@@ -574,7 +582,7 @@ function showStats() {
     container.innerHTML = html;
 }
 
-// Построение таблицы
+// Построение таблицы (исправленная версия - без дублирования дат)
 function buildTable() {
     const table = document.getElementById('calendarTable');
     const results = appData.results;
@@ -584,25 +592,22 @@ function buildTable() {
         return;
     }
     
-    // Собираем все даты
+    // Собираем все даты ТОЛЬКО из расписания (не добавляем дни отдыха в общий список дат)
     const allDates = new Set();
-    results.assigned.forEach(s => allDates.add(s.date));
-    results.unassigned.forEach(s => allDates.add(s.date));
     
-    // Добавляем дни отдыха после суточных нарядов
-    results.assigned.forEach(shift => {
-        if (shift.type !== 7) {
-            const nextDay = getNextDay(shift.date);
-            if (nextDay) allDates.add(nextDay);
-        }
-    });
+    // Добавляем только даты из расписания (изначальные даты нарядов)
+    Object.keys(appData.schedule).forEach(date => allDates.add(date));
     
+    // Сортируем даты
     let dates = Array.from(allDates).sort();
     
     // Заголовок
     let html = '<tr><th class="employee-cell">Сотрудник</th>';
     dates.forEach(date => {
-        html += `<th title="${date}">${date.split('.')[0]}.${date.split('.')[1]}</th>`;
+        // Отображаем только день и месяц
+        const day = date.split('.')[0];
+        const month = date.split('.')[1];
+        html += `<th title="${date}">${day}.${month}</th>`;
     });
     html += '<th>Итого</th></tr>';
     
@@ -637,7 +642,7 @@ function buildTable() {
                     }
                     totalShifts++;
                 } 
-                // Проверяем день отдыха после суточного наряда
+                // Проверяем день отдыха после суточного наряда (предыдущий день)
                 else {
                     const prevDate = getPrevDay(date);
                     const prevDayShift = prevDate ? results.assigned.find(s => 
