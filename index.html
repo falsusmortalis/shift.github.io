@@ -222,6 +222,12 @@
             font-weight: bold;
         }
         
+        .preferred-rest-cell {
+            background: #9b59b6;
+            color: white;
+            font-weight: bold;
+        }
+        
         .stats-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -348,6 +354,24 @@
             font-weight: bold;
         }
         
+        .preferred-days-input {
+            margin-top: 8px;
+        }
+        
+        .preferred-days-input input {
+            margin-bottom: 5px;
+        }
+        
+        .add-preferred-day {
+            background: #9b59b6;
+            padding: 8px 12px;
+            font-size: 14px;
+        }
+        
+        .add-preferred-day:hover {
+            background: #8e44ad;
+        }
+        
         @media (min-width: 768px) {
             .tariff-cards {
                 grid-template-columns: 1fr 1fr 1fr;
@@ -362,7 +386,8 @@
         <div class="shift-info">
             <strong>Информация о нарядах:</strong><br>
             • Типы 1-6: суточные наряды (9:00 - 9:00) → занимают 2 дня<br>
-            • Тип 7: 8-часовой наряд → занимает 1 день
+            • Тип 7: 8-часовой наряд → занимает 1 день<br>
+            • <span style="color: #9b59b6;">Фиолетовый</span> - желаемые дни отдыха (дни рождения, праздники)
         </div>
         
         <div class="tabs">
@@ -606,6 +631,13 @@
                             </div>
                         </div>
                         <div class="input-group">
+                            <label>Желаемые дни отдыха (дни рождения, праздники):</label>
+                            <div id="preferredDaysContainer${i}" class="preferred-days-input">
+                                <input type="text" id="preferredDay${i}_0" placeholder="01.10.2025">
+                            </div>
+                            <button type="button" class="add-preferred-day" onclick="addPreferredDay(${i})">+ Добавить день</button>
+                        </div>
+                        <div class="input-group">
                             <label>Приоритет (0-10):</label>
                             <input type="number" id="priority${i}" min="0" max="10" value="0">
                         </div>
@@ -616,30 +648,4 @@
             container.innerHTML = html;
         }
 
-        // Настройка обработчиков событий
-        function setupEventListeners() {
-            // Сохранение сотрудников
-            document.getElementById('saveEmployeesBtn').addEventListener('click', saveEmployees);
-            
-            // Обработка расписания
-            document.getElementById('parseScheduleBtn').addEventListener('click', parseSchedule);
-            
-            // Генерация расписания
-            document.getElementById('generateBtn').addEventListener('click', generateSchedule);
-            
-            // Переключение вида результатов
-            document.getElementById('viewType').addEventListener('change', changeView);
-        }
-
-        // Сохранение сотрудников
-        function saveEmployees() {
-            console.log("Сохраняем сотрудников...");
-            
-            const count = parseInt(document.getElementById('employeeCount').value);
-            appData.employees = [];
-            
-            for (let i = 0; i < count; i++) {
-                const name = document.getElementById('empName' + i).value.trim();
-                if (name) {
-                    const vacationStart = document.getElementById('vacStart' + i).value.trim();
-        
+        //
