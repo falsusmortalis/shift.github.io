@@ -1,210 +1,19 @@
+// Данные приложения
+let appData = {
+    employees: [],
+    schedule: {},
+    results: null
+};
+
 // Система оплаты и доступа
 let userSubscription = {
     type: 'demo', // 'demo', 'single', 'monthly'
-    generationsLeft: 0,
+    generationsLeft: 999,
     expiryDate: null,
-    isActive: false
+    isActive: true
 };
 
-// Инициализация системы доступа
-function initSubscriptionSystem() {
-    // Загружаем данные из localStorage
-    const saved = localStorage.getItem('shiftScheduler_subscription');
-    if (saved) {
-        userSubscription = JSON.parse(saved);
-    } else {
-        // Активруем демо по умолчанию
-        activateDemo();
-    }
-    updateStatusDisplay();
-}
-
-// Активация демо-режима
-function activateDemo() {
-    userSubscription = {
-        type: 'demo',
-        generationsLeft: 999, // Неограниченно для демо
-        expiryDate: null,
-        isActive: true
-    };
-    saveSubscription();
-    updateStatusDisplay();
-    alert('✅ Демо-режим активирован! Доступны первые 7 дней месяца.');
-}
-
-// Показ формы оплаты
-function showPaymentForm(type) {
-    const amount = type === 'monthly' ? '300' : '100';
-    document.getElementById('paymentAmount').textContent = amount;
-    document.getElementById('paymentForm').classList.remove('hidden');
-    
-    // Сохраняем выбранный тип для активации
-    document.getElementById('paymentForm').dataset.paymentType = type;
-}
-
-// Активация премиум доступа
-function activatePremium() {
-    const code = document.getElementById('paymentCode').value.trim();
-    const type = document.getElementById('paymentForm').dataset.paymentType;
-    
-    if (!code) {
-        alert('❌ Введите код подтверждения');
-        return;
-    }
-    
-    // Здесь должна быть проверка кода через бэкенд
-    // Для демо - простейшая проверка
-    if (code.length >= 4) {
-        userSubscription = {
-            type: type,
-            generationsLeft: type === 'monthly' ? 7 : 1,
-            expiryDate: type === 'monthly' ? getDateInFuture(30) : null,
-            isActive: true
-        };
-        
-        saveSubscription();
-        updateStatusDisplay();
-        document.getElementById('paymentForm').classList.add('hidden');
-        document.getElementById('paymentCode').value = '';
-        
-        alert('✅ Премиум доступ активирован!');
-    } else {
-        alert('❌ Неверный код подтверждения');
-    }
-}
-
-// Получение даты в будущем
-function getDateInFuture(days) {
-    const date = new Date();
-    date.setDate(date.getDate() + days);
-    return date.toISOString();
-}
-
-// Сохранение подписки
-function saveSubscription() {
-    localStorage.setItem('shiftScheduler_subscription', JSON.stringify(userSubscription));
-}
-
-// Обновление отображения статуса
-function updateStatusDisplay() {
-    const statusInfo = document.getElementById('statusInfo');
-    
-    if (!userSubscription.isActive) {
-        statusInfo.innerHTML = `
-            <div class="status-inactive">
-                <h4>❌ Нет активной подписки</h4>
-                <p>Активируйте демо-режим или купите премиум доступ</p>
-            </div>
-        `;
-        return;
-    }
-    
-    if (userSubscription.type === 'demo') {
-        statusInfo.innerHTML = `
-            <div class="status-demo">
-                <h4>🎯 Демо-режим</h4>
-                <p>Доступны только первые 7 дней каждого месяца</p>
-                <p><strong>Генераций осталось:</strong> Неограниченно</p>
-            </div>
-        `;
-    } else {
-        const typeName = userSubscription.type === 'monthly' ? 'Месячная подписка' : 'Разовый доступ';
-        const expiryText = userSubscription.expiryDate ? 
-            `Действует до: ${new Date(userSubscription.expiryDate).toLocaleDateString('ru-RU')}` : 
-            'Действует 1 генерацию';
-        
-        statusInfo.innerHTML = `
-            <div class="status-active">
-                <h4>💎 ${typeName}</h4>
-                <p><strong>Генераций осталось:</strong> ${userSubscription.generationsLeft}</p>
-                <p>${expiryText}</p>
-            </div>
-        `;
-    }
-}
-
-// Проверка доступа при генерации расписания
-function checkAccess() {
-    if (!userSubscription.isActive) {
-        alert('❌ Нет активной подписки. Активируйте демо или купите доступ.');
-        return false;
-    }
-    
-    // Проверка лимита генераций для платных подписок
-    if (userSubscription.type !== 'demo' && userSubscription.generationsLeft <= 0) {
-        alert('❌ Лимит генераций исчерпан. Купите новую подписку.');
-        showTab('payment');
-        return false;
-    }
-    
-    // Проверка демо-ограничения (только первые 7 дней месяца)
-    if (userSubscription.type === 'demo') {
-        const hasInvalidDates = Object.keys(appData.schedule).some(date => {
-            const day = parseInt(date.split('.')[0]);
-            return day > 7;
-        });
-        
-        if (hasInvalidDates) {
-            alert('❌ В демо-режиме доступны только первые 7 дней месяца. Купите полный доступ для работы со всеми датами.');
-            showTab('payment');
-            return false;
-        }
-    }
-    
-    return true;
-}
-
-// Обновите функцию generateSchedule
-function generateSchedule() {
-    console.log("Генерируем расписание...");
-    
-    // Проверка доступа
-    if (!checkAccess()) {
-        return;
-    }
-    
-    if (appData.employees.length === 0) {
-        alert('❌ Сначала добавьте сотрудников');
-        return;
-    }
-    
-    if (Object.keys(appData.schedule).length === 0) {
-        alert('❌ Сначала загрузите расписание');
-        return;
-    }
-    
-    // Показать загрузку
-    document.getElementById('loading').classList.remove('hidden');
-    document.getElementById('generateBtn').disabled = true;
-    
-    // Даем небольшую задержку для отображения loading
-    setTimeout(() => {
-        try {
-            // Логика распределения
-            const results = distributeShifts();
-            appData.results = results;
-            displayResults();
-            
-            // Уменьшаем счетчик генераций для платных подписок
-            if (userSubscription.type !== 'demo') {
-                userSubscription.generationsLeft--;
-                saveSubscription();
-                updateStatusDisplay();
-            }
-            
-            alert('✅ Расписание успешно сгенерировано!');
-            
-        } catch (error) {
-            console.error('Ошибка:', error);
-            alert('❌ Ошибка: ' + error.message);
-        } finally {
-            document.getElementById('loading').classList.add('hidden');
-            document.getElementById('generateBtn').disabled = false;
-        }
-    }, 500);
-}
-
-// Обновите инициализацию
+// Инициализация при загрузке
 document.addEventListener('DOMContentLoaded', function() {
     console.log("Приложение загружено!");
     
@@ -214,99 +23,279 @@ document.addEventListener('DOMContentLoaded', function() {
         window.Telegram.WebApp.expand();
         console.log("Telegram Web App инициализирован");
     }
-    // Построение таблицы с учетом отдыха после суточных нарядов
-function buildTable() {
-    const table = document.getElementById('calendarTable');
-    const results = appData.results;
     
-    // Собираем все даты из расписания (только те, где есть наряды)
-    const allDates = new Set();
-    Object.keys(appData.schedule).forEach(date => allDates.add(date));
-    
-    // Добавляем дни отдыха после суточных нарядов
-    results.assigned.forEach(shift => {
-        if (shift.type !== 7) { // Суточные наряды
-            allDates.add(getNextDay(shift.date));
-        }
-    });
-    
-    const dates = Array.from(allDates).sort();
-    
-    // Заголовок
-    let html = '<tr><th class="employee-cell">Сотрудник</th>';
-    dates.forEach(date => {
-        html += `<th title="${date}">${date.split('.')[0]}</th>`;
-    });
-    html += '<th>Итого</th></tr>';
-    
-    // Данные сотрудников
-    for (const employee of appData.employees) {
-        let row = `<tr><td class="employee-cell">${employee.name}</td>`;
-        let totalShifts = 0;
-        
-        for (const date of dates) {
-            let content = '';
-            let cellClass = '';
-            
-            // Проверяем отпуск
-            if (employee.vacationDays.includes(date)) {
-                content = 'Х';
-                cellClass = 'vacation-cell';
-            } 
-            // Проверяем назначенный наряд в эту дату
-            else {
-                const shiftOnThisDate = results.assigned.find(s => s.date === date && s.employee === employee.name);
-                if (shiftOnThisDate) {
-                    content = shiftOnThisDate.type;
-                    cellClass = 'shift-cell';
-                    totalShifts++;
-                } 
-                // Проверяем день отдыха после суточного наряда (только если нет наряда в этот день)
-                else {
-                    const prevDate = getPrevDay(date);
-                    const prevDayShift = results.assigned.find(s => 
-                        s.date === prevDate && 
-                        s.employee === employee.name && 
-                        s.type !== 7 // Только суточные наряды
-                    );
-                    if (prevDayShift) {
-                        content = '*';
-                        cellClass = 'rest-cell';
-                    }
-                }
-            }
-            
-            row += `<td class="${cellClass}">${content}</td>`;
-        }
-        
-        row += `<td><strong>${totalShifts}</strong></td></tr>`;
-        html += row;
-    }
-    
-    // Нераспределенные наряды
-    if (results.unassigned.length > 0) {
-        let row = '<tr><td class="employee-cell" style="background:#e74c3c;color:white;">Нераспределенные</td>';
-        
-        for (const date of dates) {
-            const count = results.unassigned.filter(s => s.date === date).length;
-            if (count > 0) {
-                row += `<td class="unassigned-cell">${count}</td>`;
-            } else {
-                row += '<td></td>';
-            }
-        }
-        
-        row += `<td><strong>${results.unassigned.length}</strong></td></tr>`;
-        html += row;
-    }
-    
-    table.innerHTML = html;
-}
     // Инициализация интерфейса
     initTabs();
     initEmployeeFields();
     setupEventListeners();
-    initSubscriptionSystem(); // Добавить эту строку!
+    initSubscriptionSystem();
     
     console.log("Приложение готово к работе");
 });
+
+// Инициализация вкладок
+function initTabs() {
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const tabName = this.getAttribute('data-tab');
+            showTab(tabName);
+        });
+    });
+}
+
+// Показать вкладку
+function showTab(tabName) {
+    console.log("Переключаем на вкладку:", tabName);
+    
+    // Скрыть все вкладки
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // Убрать активный класс со всех кнопок
+    document.querySelectorAll('.tab').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Показать выбранную вкладку
+    document.getElementById(tabName + '-tab').classList.add('active');
+    
+    // Активировать кнопку
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+}
+
+// Инициализация полей сотрудников
+function initEmployeeFields() {
+    updateEmployeeFields();
+    
+    // Обновлять поля при изменении количества
+    document.getElementById('employeeCount').addEventListener('change', updateEmployeeFields);
+}
+
+// Обновление полей сотрудников
+function updateEmployeeFields() {
+    const count = parseInt(document.getElementById('employeeCount').value);
+    const container = document.getElementById('employeeFields');
+    
+    let html = '';
+    for (let i = 0; i < count; i++) {
+        html += `
+            <div class="employee-item">
+                <h3>Сотрудник ${i + 1}</h3>
+                <div class="input-group">
+                    <label>Фамилия:</label>
+                    <input type="text" id="empName${i}" placeholder="Иванов" value="Сотрудник ${i + 1}">
+                </div>
+                <div class="input-group">
+                    <label>Отпуск (период):</label>
+                    <div class="date-range">
+                        <input type="text" id="vacStart${i}" placeholder="01.10.2025">
+                        <span>по</span>
+                        <input type="text" id="vacEnd${i}" placeholder="05.10.2025">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Желаемые дни отдыха (дни рождения, праздники):</label>
+                    <div id="preferredDaysContainer${i}" class="preferred-days-input">
+                        <input type="text" id="preferredDay${i}_0" placeholder="01.10.2025">
+                    </div>
+                    <button type="button" class="add-preferred-day" onclick="addPreferredDay(${i})">+ Добавить день</button>
+                </div>
+                <div class="input-group">
+                    <label>Приоритет (0-10):</label>
+                    <input type="number" id="priority${i}" min="0" max="10" value="0">
+                </div>
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html;
+}
+
+// Добавление поля для желаемого дня отдыха
+function addPreferredDay(employeeIndex) {
+    const container = document.getElementById('preferredDaysContainer' + employeeIndex);
+    const inputCount = container.querySelectorAll('input').length;
+    const newInput = document.createElement('input');
+    newInput.type = 'text';
+    newInput.id = 'preferredDay' + employeeIndex + '_' + inputCount;
+    newInput.placeholder = '01.10.2025';
+    container.appendChild(newInput);
+}
+
+// Настройка обработчиков событий
+function setupEventListeners() {
+    // Сохранение сотрудников
+    document.getElementById('saveEmployeesBtn').addEventListener('click', saveEmployees);
+    
+    // Обработка расписания
+    document.getElementById('parseScheduleBtn').addEventListener('click', parseSchedule);
+    
+    // Генерация расписания
+    document.getElementById('generateBtn').addEventListener('click', generateSchedule);
+    
+    // Переключение вида результатов
+    document.getElementById('viewType').addEventListener('change', changeView);
+}
+
+// Сохранение сотрудников
+function saveEmployees() {
+    console.log("Сохраняем сотрудников...");
+    
+    const count = parseInt(document.getElementById('employeeCount').value);
+    appData.employees = [];
+    
+    for (let i = 0; i < count; i++) {
+        const name = document.getElementById('empName' + i).value.trim();
+        if (name) {
+            const vacationStart = document.getElementById('vacStart' + i).value.trim();
+            const vacationEnd = document.getElementById('vacEnd' + i).value.trim();
+            const priority = parseInt(document.getElementById('priority' + i).value) || 0;
+            
+            // Собираем желаемые дни отдыха
+            const preferredDays = [];
+            const preferredInputs = document.querySelectorAll('#preferredDaysContainer' + i + ' input');
+            preferredInputs.forEach(input => {
+                if (input.value.trim()) {
+                    preferredDays.push(input.value.trim());
+                }
+            });
+            
+            let vacationDays = [];
+            
+            // Обрабатываем период отпуска
+            if (vacationStart && vacationEnd) {
+                vacationDays = generateDateRange(vacationStart, vacationEnd);
+            }
+            
+            appData.employees.push({
+                name: name,
+                vacationDays: vacationDays,
+                preferredDays: preferredDays,
+                priority: priority
+            });
+            
+            console.log(`Добавлен сотрудник: ${name}, отпуск: ${vacationDays.length} дней, желаемые дни: ${preferredDays.length}`);
+        }
+    }
+    
+    if (appData.employees.length > 0) {
+        alert('✅ Сохранено ' + appData.employees.length + ' сотрудников');
+        showTab('schedule');
+    } else {
+        alert('❌ Добавьте хотя бы одного сотрудника');
+    }
+}
+
+// Генерация диапазона дат
+function generateDateRange(startStr, endStr) {
+    const startDate = parseDate(startStr);
+    const endDate = parseDate(endStr);
+    
+    if (!startDate || !endDate) {
+        console.error("Неверный формат даты отпуска");
+        return [];
+    }
+    
+    const dates = [];
+    const currentDate = new Date(startDate);
+    
+    while (currentDate <= endDate) {
+        dates.push(formatDate(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    console.log(`Сгенерирован отпуск с ${formatDate(startDate)} по ${formatDate(endDate)}: ${dates.length} дней`);
+    return dates;
+}
+
+// Парсинг даты из строки
+function parseDate(dateStr) {
+    const parts = dateStr.split('.');
+    if (parts.length === 3) {
+        const day = parseInt(parts[0]);
+        const month = parseInt(parts[1]) - 1;
+        const year = parseInt(parts[2]);
+        const date = new Date(year, month, day);
+        // Проверяем валидность даты
+        if (date.getDate() === day && date.getMonth() === month && date.getFullYear() === year) {
+            return date;
+        }
+    }
+    return null;
+}
+
+// Форматирование даты в строку
+function formatDate(date) {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
+}
+
+// Получение следующего дня
+function getNextDay(dateStr) {
+    const date = parseDate(dateStr);
+    if (!date) return null;
+    date.setDate(date.getDate() + 1);
+    return formatDate(date);
+}
+
+// Получение предыдущего дня
+function getPrevDay(dateStr) {
+    const date = parseDate(dateStr);
+    if (!date) return null;
+    date.setDate(date.getDate() - 1);
+    return formatDate(date);
+}
+
+// Парсинг расписания
+function parseSchedule() {
+    console.log("Парсим расписание...");
+    
+    const scheduleText = document.getElementById('manualSchedule').value;
+    if (!scheduleText.trim()) {
+        alert('❌ Введите расписание');
+        return;
+    }
+    
+    appData.schedule = {};
+    const lines = scheduleText.split('\n');
+    let parsedDays = 0;
+    let parsedShifts = 0;
+    
+    for (let line of lines) {
+        line = line.trim();
+        if (!line || line.startsWith('дата')) continue;
+        
+        const parts = line.split(';');
+        if (parts.length >= 2) {
+            const dateStr = parts[0].trim();
+            const shiftsStr = parts[1].trim();
+            
+            // Валидация даты
+            if (parseDate(dateStr)) {
+                const shifts = shiftsStr.split(',')
+                    .map(s => parseInt(s.trim()))
+                    .filter(s => s >= 1 && s <= 7);
+                
+                if (shifts.length > 0) {
+                    appData.schedule[dateStr] = shifts;
+                    parsedDays++;
+                    parsedShifts += shifts.length;
+                }
+            }
+        }
+    }
+    
+    if (parsedDays > 0) {
+        alert(`✅ Загружено: ${parsedDays} дней, ${parsedShifts} нарядов`);
+        showTab('results');
+    } else {
+        alert('❌ Не удалось распарсить расписание. Используйте формат: дата;наряды\nПример: 01.10.2025;1,2,3');
+    }
+}
+
+// Проверка доступа при генерации расписания
+function check
