@@ -341,8 +341,7 @@ function distributeShifts() {
     appData.employees.forEach(emp => {
         employeeStats[emp.name] = { 
             shiftsCount: 0, 
-            monthlySlots: 15,
-            totalScore: 0
+            monthlySlots: 15
         };
         occupiedDays[emp.name] = new Set();
         employeeLoad[emp.name] = 0;
@@ -352,30 +351,14 @@ function distributeShifts() {
     const allShifts = [];
     for (const [date, shiftTypes] of Object.entries(appData.schedule)) {
         for (const type of shiftTypes) {
-            // Приоритет для суточных нарядов (они сложнее)
-            const priority = type === 7 ? 1 : 2;
-            allShifts.push({ date, type, priority });
+            allShifts.push({ date, type });
         }
     }
     
-    // Сортируем: сначала суточные наряды, потом по дате
-    allShifts.sort((a, b) => {
-        if (b.priority !== a.priority) return b.priority - a.priority;
-        return a.date.localeCompare(b.date);
-    });
+    // Сортируем по дате
+    allShifts.sort((a, b) => a.date.localeCompare(b.date));
     
     console.log(`Всего нарядов для распределения: ${allShifts.length}`);
-    
-    // Функция для расчета "справедливости" распределения
-    function calculateFairness() {
-        const loads = Object.values(employeeLoad);
-        const avgLoad = loads.reduce((a, b) => a + b, 0) / loads.length;
-        let fairness = 0;
-        loads.forEach(load => {
-            fairness += Math.abs(load - avgLoad);
-        });
-        return fairness;
-    }
     
     // Распределяем наряды
     for (const shift of allShifts) {
@@ -383,36 +366,21 @@ function distributeShifts() {
         let bestCandidate = null;
         let bestScore = -Infinity;
         
+        // Рассчитываем среднюю нагрузку для балансировки
+        const currentLoads = Object.values(employeeLoad);
+        const avgLoad = currentLoads.length > 0 ? currentLoads.reduce((a, b) => a + b, 0) / currentLoads.length : 0;
+        
         // Оценка каждого сотрудника для этого наряда
         for (const employee of appData.employees) {
-            let score = calculateAssignmentScore(
+            const score = calculateAssignmentScore(
                 employee, 
                 occupiedDates, 
                 occupiedDays[employee.name], 
                 employeeStats[employee.name], 
                 shift.type,
-                employeeLoad[employee.name]
+                employeeLoad[employee.name],
+                avgLoad
             );
-            
-            // Учитываем текущую нагрузку для балансировки
-            const currentFairness = calculateFairness();
-            
-            // Временное назначаем наряд и смотрим на справедливость
-            const tempLoad = {...employeeLoad};
-            tempLoad[employee.name] += (shift.type === 7 ? 1 : 2);
-            
-            // Временная "справедливость"
-            let tempFairness = 0;
-            const tempLoads = Object.values(tempLoad);
-            const tempAvgLoad = tempLoads.reduce((a, b) => a + b, 0) / tempLoads.length;
-            tempLoads.forEach(load => {
-                tempFairness += Math.abs(load - tempAvgLoad);
-            });
-            
-            // Бонус за улучшение справедливости
-            if (tempFairness < currentFairness) {
-                score += 10;
-            }
             
             if (score > bestScore && score > 0) {
                 bestCandidate = employee;
@@ -430,6 +398,8 @@ function distributeShifts() {
             
             // Обновляем статистику
             employeeStats[bestCandidate.name].shiftsCount++;
+            
+            // Обновляем нагрузку (суточные наряды = 2 балла, 8-часовые = 1 балл)
             employeeLoad[bestCandidate.name] += (shift.type === 7 ? 1 : 2);
             
             if (shift.type !== 7) {
@@ -472,7 +442,7 @@ function distributeShifts() {
 }
 
 // Улучшенная система оценок
-function calculateAssignmentScore(employee, occupiedDates, empOccupiedDays, stats, shiftType, currentLoad) {
+function calculateAssignmentScore(employee, occupiedDates, empOccupiedDays, stats, shiftType, currentLoad, avgLoad) {
     let score = 100;
     
     // 1. Абсолютные запреты (0 баллов)
@@ -500,7 +470,7 @@ function calculateAssignmentScore(employee, occupiedDates, empOccupiedDays, stat
     let preferredPenalty = 0;
     for (const date of occupiedDates) {
         if (employee.preferredDays.includes(date)) {
-            preferredPenalty += 40; // Увеличил штраф
+            preferredPenalty += 40;
         }
     }
     score -= preferredPenalty;
@@ -511,7 +481,6 @@ function calculateAssignmentScore(employee, occupiedDates, empOccupiedDays, stat
     score += employee.priority * 5;
     
     // Бонус за меньшую текущую нагрузку (балансировка)
-    const avgLoad = Object.values(this.employeeLoad || {}).reduce((a, b) => a + b, 0) / Math.max(Object.values(this.employeeLoad || {}).length, 1);
     const loadDifference = avgLoad - currentLoad;
     score += loadDifference * 8;
     
@@ -579,12 +548,12 @@ function showStats() {
     // Сортируем сотрудников по нагрузке
     const sortedEmployees = appData.employees.map(emp => {
         const stats = results.employeeStats[emp.name];
-        const load = (results.employeeLoad && results.employeeLoad[emp.name]) || 0;
+        const load = results.employeeLoad ? results.employeeLoad[emp.name] || 0 : 0;
         return { ...emp, stats, load };
     }).sort((a, b) => b.load - a.load);
     
     for (const employee of sortedEmployees) {
-        const load = (results.employeeLoad && results.employeeLoad[employee.name]) || 0;
+        const load = employee.load;
         const loads = results.employeeLoad ? Object.values(results.employeeLoad) : [0];
         const maxLoad = Math.max(...loads);
         const loadPercentage = maxLoad > 0 ? Math.round((load / maxLoad) * 100) : 0;
